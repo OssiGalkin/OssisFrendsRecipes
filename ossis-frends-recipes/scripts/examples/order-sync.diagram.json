@@ -1,0 +1,67 @@
+{
+  "name": "Nightly order sync (hand-authored example)",
+  "process_id": "Process_OrderSync",
+  "_note": "Authored by hand in Frends vocabulary, not extracted. Exercises Catch, which appears nowhere in the public template corpus. Produces a DIAGRAM only: there is no process.json, no ElementParameters, no TriggersJson, so this cannot be imported into Frends.",
+  "nodes": [
+    {"id": "Trigger_1", "shape": "trigger", "label": "Nightly schedule", "parent": null},
+
+    {"id": "Scope_Fetch", "shape": "scope", "label": "Fetch orders", "parent": null},
+    {"id": "Fetch_Start", "shape": "scope_trigger", "label": null, "parent": "Scope_Fetch"},
+    {"id": "Fetch_Http", "shape": "task", "label": "HTTP Request orders", "parent": "Scope_Fetch"},
+    {"id": "Fetch_Check", "shape": "decision", "label": "Status 200?", "parent": "Scope_Fetch"},
+    {"id": "Fetch_Throw", "shape": "throw", "label": "Throw if order fetch failed", "parent": "Scope_Fetch"},
+    {"id": "Fetch_Return", "shape": "return", "label": "Return order payload", "parent": "Scope_Fetch"},
+
+    {"id": "Catch_Fetch", "shape": "catch", "label": "Catch fetch error", "parent": null, "attached_to": "Scope_Fetch"},
+
+    {"id": "Scope_Handle", "shape": "scope", "label": "Handle fetch error", "parent": null},
+    {"id": "Handle_Start", "shape": "scope_trigger", "label": null, "parent": "Scope_Handle"},
+    {"id": "Handle_Log", "shape": "code_task", "label": "Build error report", "parent": "Scope_Handle"},
+    {"id": "Handle_Notify", "shape": "task", "label": "Send Teams alert", "parent": "Scope_Handle"},
+    {"id": "Handle_Return", "shape": "return", "label": "Return empty order set", "parent": "Scope_Handle"},
+
+    {"id": "Assign_Count", "shape": "assign_variable", "label": "Assign orderCount", "parent": null},
+    {"id": "Gate_Any", "shape": "decision", "label": "Any orders to sync?", "parent": null},
+
+    {"id": "Foreach_Order", "shape": "foreach", "label": "For each order", "parent": null},
+    {"id": "FE_Start", "shape": "scope_trigger", "label": null, "parent": "Foreach_Order"},
+    {"id": "FE_Map", "shape": "code_task", "label": "Map order to ERP schema", "parent": "Foreach_Order"},
+    {"id": "FE_Push", "shape": "task", "label": "Insert order into ERP", "parent": "Foreach_Order"},
+    {"id": "FE_Ok", "shape": "decision", "label": "Insert successful?", "parent": "Foreach_Order"},
+    {"id": "FE_Fail", "shape": "assign_variable", "label": "Add to failures", "parent": "Foreach_Order"},
+    {"id": "FE_Return", "shape": "return", "label": "Return iteration result", "parent": "Foreach_Order"},
+
+    {"id": "Cache_Mark", "shape": "shared_state_task", "label": "Store last sync time", "parent": null},
+    {"id": "Return_Ok", "shape": "return", "label": "Return sync summary", "parent": null},
+    {"id": "Return_Skip", "shape": "return", "label": "Nothing to sync", "parent": null}
+  ],
+  "flows": [
+    {"id": "F_01", "source": "Trigger_1", "target": "Scope_Fetch", "label": null},
+
+    {"id": "F_f1", "source": "Fetch_Start", "target": "Fetch_Http", "label": null},
+    {"id": "F_f2", "source": "Fetch_Http", "target": "Fetch_Check", "label": null},
+    {"id": "F_f3", "source": "Fetch_Check", "target": "Fetch_Return", "label": "yes"},
+    {"id": "F_f4", "source": "Fetch_Check", "target": "Fetch_Throw", "label": "no"},
+
+    {"id": "F_h1", "source": "Handle_Start", "target": "Handle_Log", "label": null},
+    {"id": "F_h2", "source": "Handle_Log", "target": "Handle_Notify", "label": null},
+    {"id": "F_h3", "source": "Handle_Notify", "target": "Handle_Return", "label": null},
+
+    {"id": "F_02", "source": "Catch_Fetch", "target": "Scope_Handle", "label": null},
+    {"id": "F_03", "source": "Scope_Handle", "target": "Assign_Count", "label": null},
+    {"id": "F_04", "source": "Scope_Fetch", "target": "Assign_Count", "label": null},
+    {"id": "F_05", "source": "Assign_Count", "target": "Gate_Any", "label": null},
+    {"id": "F_06", "source": "Gate_Any", "target": "Foreach_Order", "label": "yes"},
+    {"id": "F_07", "source": "Gate_Any", "target": "Return_Skip", "label": "no"},
+
+    {"id": "F_e1", "source": "FE_Start", "target": "FE_Map", "label": null},
+    {"id": "F_e2", "source": "FE_Map", "target": "FE_Push", "label": null},
+    {"id": "F_e3", "source": "FE_Push", "target": "FE_Ok", "label": null},
+    {"id": "F_e4", "source": "FE_Ok", "target": "FE_Return", "label": "yes"},
+    {"id": "F_e5", "source": "FE_Ok", "target": "FE_Fail", "label": "no"},
+    {"id": "F_e6", "source": "FE_Fail", "target": "FE_Return", "label": null},
+
+    {"id": "F_08", "source": "Foreach_Order", "target": "Cache_Mark", "label": null},
+    {"id": "F_09", "source": "Cache_Mark", "target": "Return_Ok", "label": null}
+  ]
+}

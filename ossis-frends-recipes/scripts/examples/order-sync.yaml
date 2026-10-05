@@ -1,0 +1,109 @@
+# Worked example: exercises every construct the tool supports.
+#
+#   Manual Trigger, Process Variables, Assign Variable, Code Task (statement
+#   and expression mode), Frends.HTTP.Request (with retry, headers, OAuth),
+#   Exclusive Decision with a terminating else-branch, Exclusive Decision with
+#   an else-branch that merges back, While, Foreach, Return, Throw.
+
+name: Order sync - shop to ERP
+description: Pull paginated orders from the shop API and post each one to the ERP.
+modifier: frendsgen@example.com
+
+trigger: manual
+
+variables:
+  - name: ShopBaseUrl
+    value: '"https://shop.example.com/api"'
+    description: Base URL of the shop API
+  - name: ShopToken
+    value: '""'
+    secret: true
+    description: OAuth bearer token for the shop API
+  - name: ErpBaseUrl
+    value: '"https://erp.example.com/api"'
+    description: Base URL of the ERP API
+
+steps:
+  # --- Assign Variable (30x30 scriptTask) ---------------------------------
+  - assign: {variable: orders, expression: {csharp: "new JArray()"}}
+
+  - assign:
+      variable: pageUrl
+      expression: {csharp: '$"{#var.ShopBaseUrl}/orders?page=1"'}
+
+  # --- While container -----------------------------------------------------
+  - while:
+      name: Process result pages
+      condition: {csharp: "#var.pageUrl != null"}
+      max_iterations: 500
+      do:
+        - task:
+            type: http_request
+            params:
+              method: GET
+              url: {csharp: "#var.pageUrl"}
+              authentication: OAuth
+              token: {csharp: "#var.ShopToken"}
+              throw_on_error: true
+          name: Get orders on current page
+          retry: 3
+
+        # --- Decision with a terminating else-branch ----------------------
+        - decision:
+            name: Page fetched?
+            condition: {csharp: "#result[Get orders on current page].StatusCode == 200"}
+            else:
+              - throw:
+                  message: "Shop API returned {{#result[Get orders on current page].StatusCode}}"
+
+        # --- Code Task, statement mode, assigning a variable ---------------
+        - code:
+            variable: pageUrl
+            statement_mode: true
+            expression:
+              csharp: |-
+                {
+                    var body = #result[Get orders on current page].Body;
+                    return body["next"] != null ? body["next"].ToString() : null;
+                }
+          name: Read next page link
+
+        # --- Foreach container --------------------------------------------
+        - foreach:
+            name: For each order on page
+            item: order
+            in: {csharp: "#result[Get orders on current page].Body[\"items\"]"}
+            do:
+              - code:
+                  statement_mode: false
+                  variable: orders
+                  expression: {csharp: "((JArray)#var.orders).Append(#var.order)"}
+                name: Collect order
+              - return: {csharp: "#var.order_index"}
+
+        - return: {csharp: "#var.pageUrl"}
+
+  # --- Decision whose else-branch merges back ------------------------------
+  - decision:
+      name: Anything to send?
+      condition: {csharp: "((JArray)#var.orders).Count > 0"}
+      then:
+        - foreach:
+            name: For each collected order
+            item: erpOrder
+            in: {csharp: "#var.orders"}
+            do:
+              - task:
+                  type: http_request
+                  params:
+                    method: POST
+                    url: {csharp: '$"{#var.ErpBaseUrl}/orders"'}
+                    message: {csharp: "JsonConvert.SerializeObject(#var.erpOrder)"}
+                    headers:
+                      - {name: Content-Type, value: application/json}
+                    throw_on_error: true
+                name: Post order to ERP
+                retry: 2
+              - return: {csharp: "#result[Post order to ERP].Body"}
+
+  - return: {csharp: '$"Synced {((JArray)#var.orders).Count} orders"'}

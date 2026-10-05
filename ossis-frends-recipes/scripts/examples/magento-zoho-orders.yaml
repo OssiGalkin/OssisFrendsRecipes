@@ -1,0 +1,349 @@
+name: Adobe Commerce / Magento to Zoho CRM - Orders
+description: This template process retrieves order data from Adobe Commerce / Magento and uploads each
+  order into Zoho CRM.
+modifier: frendsgen@example.com
+trigger: manual
+major_version: 1
+minor_version: 0
+variables:
+- name: MagentoBaseUrl
+  value: '"http://example.com"'
+  description: The base URL for the Magento instance.
+- name: MagentoUser
+  value: '"ExampleUser"'
+  description: The user for Magento.
+- name: MagentoPassword
+  value: '"ExamplePassword"'
+  secret: true
+  description: The password for the Magento user.
+- name: ZohoClientId
+  value: '"ExampleClientId"'
+  description: The client ID for Zoho CRM.
+- name: ZohoClientSecret
+  value: '"ExampleClientSecret"'
+  secret: true
+  description: The client secret for Zoho CRM.
+- name: ZohoApiUrl
+  value: '"https://www.zohoapis.eu"'
+  description: The regional domain for accessing the Zoho CRM API.
+- name: ZohoAccountsUrl
+  value: '"https://accounts.zoho.eu"'
+  description: The regional domain for accessing the Zoho CRM authentication tokens.
+- name: ZohoRefreshToken
+  value: '"ExampleToken"'
+  secret: true
+  description: The token used for generating a new access token for authorizing Zoho CRM API requests.
+steps:
+- task:
+    type: http_request
+    params:
+      method: POST
+      result_method: JToken
+      url: '{{#var.MagentoBaseUrl}}/rest/V1/integration/admin/token'
+      message: "{ \r\n\"username\": {{\"\\\"\" + #var.MagentoUser + \"\\\"\"}}, \r\n\"password\": {{\"\
+        \\\"\" + #var.MagentoPassword.Replace(\"\\\"\", \"\\\\\\\"\") + \"\\\"\"}} \r\n} "
+      authentication: None
+      username: ''
+      password: ''
+      token: ''
+      certificate_source: CertificateStore
+      certificate_file_path: ''
+      certificate_base64: ''
+      certificate_key_phrase: ''
+      certificate_thumbprint: ''
+      load_entire_chain: true
+      timeout_seconds: 30
+      follow_redirects: true
+      allow_invalid_certificate: false
+      allow_invalid_charset: false
+      throw_on_error: false
+      automatic_cookie_handling: true
+      headers:
+      - name: Content-Type
+        value: application/json
+  name: Get access token from Magento
+  no_log: true
+- decision:
+    name: Get Magento access token successful?
+    condition:
+      csharp: '#result[Get access token from Magento].StatusCode == 200'
+    else:
+    - throw:
+        message:
+          text: 'An error occurred while retrieving access token from Magento: {{#result[Get access token
+            from Magento].Body.message}}'
+- task:
+    type: http_request
+    params:
+      method: GET
+      result_method: JToken
+      url: '{{#var.MagentoBaseUrl}}/rest/V1/orders?searchCriteria[filter_groups][0][filters][0][field]=status&searchCriteria[filter_groups][0][filters][0][value]=canceled&searchCriteria[filter_groups][0][filters][0][condition_type]=neq'
+      message: ''
+      authentication: OAuth
+      username: ''
+      password: ''
+      token:
+        mode: csharp
+        value: '#result[Get access token from Magento].Body'
+      certificate_source: CertificateStore
+      certificate_file_path: ''
+      certificate_base64: ''
+      certificate_key_phrase: ''
+      certificate_thumbprint: ''
+      load_entire_chain: true
+      timeout_seconds: 30
+      follow_redirects: true
+      allow_invalid_certificate: false
+      allow_invalid_charset: false
+      throw_on_error: false
+      automatic_cookie_handling: true
+  name: Get orders from Magento
+- decision:
+    name: Get orders successful?
+    condition:
+      csharp: '#result[Get orders from Magento].StatusCode == 200'
+    else:
+    - throw:
+        message:
+          text: 'An error occurred while retrieving orders from Magento: {{#result[Get orders from Magento].Body.message}}'
+- assign:
+    variable: errors
+    expression:
+      csharp: '""'
+- assign:
+    variable: inserted
+    expression:
+      csharp: '0'
+- task:
+    type: http_request
+    params:
+      method: POST
+      result_method: JToken
+      url: '{{#var.ZohoAccountsUrl}}/oauth/v2/token?client_id={{#var.ZohoClientId}}&grant_type=refresh_token&client_secret={{#var.ZohoClientSecret}}&refresh_token={{#var.ZohoRefreshToken}}'
+      message: ''
+      authentication: None
+      username: ''
+      password: ''
+      token: ''
+      certificate_source: CertificateStore
+      certificate_file_path: ''
+      certificate_base64: ''
+      certificate_key_phrase: ''
+      certificate_thumbprint: ''
+      load_entire_chain: true
+      timeout_seconds: 30
+      follow_redirects: true
+      allow_invalid_certificate: false
+      allow_invalid_charset: false
+      throw_on_error: false
+      automatic_cookie_handling: true
+  name: Refresh Zoho access token
+  no_log: true
+- decision:
+    name: Access token obtained successfully?
+    condition:
+      csharp: '#result[Refresh Zoho access token].Body.error == null'
+    else:
+    - throw:
+        message:
+          text: 'An error occurred while refreshing the Zoho access token: {{#result[Refresh Zoho access
+            token].Body.error}}'
+- foreach:
+    name: For each order
+    item: order
+    in:
+      csharp: '#result[Get orders from Magento].Body.items'
+    do:
+    - task:
+        type: http_request
+        params:
+          method: GET
+          result_method: JToken
+          url: '{{#var.ZohoApiUrl}}/crm/v6/Sales_Orders/search?criteria=Subject:equals:Magento Order {{#var.order.entity_id}}&fields=id'
+          message: ''
+          authentication: OAuth
+          username: ''
+          password: ''
+          token:
+            mode: csharp
+            value: '#result[Refresh Zoho access token].Body.access_token'
+          certificate_source: CertificateStore
+          certificate_file_path: ''
+          certificate_base64: ''
+          certificate_key_phrase: ''
+          certificate_thumbprint: ''
+          load_entire_chain: true
+          timeout_seconds: 30
+          follow_redirects: true
+          allow_invalid_certificate: false
+          allow_invalid_charset: false
+          throw_on_error: false
+          automatic_cookie_handling: true
+      name: Check if order exists in Zoho
+    - decision:
+        name: Check successful?
+        condition:
+          csharp: '#result[Check if order exists in Zoho].StatusCode == 200 || #result[Check if order
+            exists in Zoho].StatusCode == 204'
+        else:
+        - return:
+            csharp: '#var.errors += $"\nError while searching for a matching order in Zoho CRM for Magento
+              order {#var.order.entity_id}: {#result[Check if order exists in Zoho].Body.message}"'
+    - decision:
+        name: Order already exists in Zoho?
+        condition:
+          csharp: '#result[Check if order exists in Zoho].StatusCode == 200'
+        else:
+        - task:
+            type: http_request
+            params:
+              method: GET
+              result_method: JToken
+              url: '{{#var.ZohoApiUrl}}/crm/v6/Contacts/search?criteria=Email:equals:{{#var.order.customer_email}}&fields=id'
+              message: ''
+              authentication: OAuth
+              username: ''
+              password: ''
+              token:
+                mode: csharp
+                value: '#result[Refresh Zoho access token].Body.access_token'
+              certificate_source: CertificateStore
+              certificate_file_path: ''
+              certificate_base64: ''
+              certificate_key_phrase: ''
+              certificate_thumbprint: ''
+              load_entire_chain: true
+              timeout_seconds: 30
+              follow_redirects: true
+              allow_invalid_certificate: false
+              allow_invalid_charset: false
+              throw_on_error: false
+              automatic_cookie_handling: true
+          name: Get Contact ID from Zoho
+        - decision:
+            name: Get contact successful?
+            condition:
+              csharp: '#result[Get Contact ID from Zoho].StatusCode == 200'
+            else:
+            - return:
+                csharp: '#var.errors += $"\nCould not find the contact ID for Magento order {#var.order.entity_id}.
+                  Status code: {#result[Get Contact ID from Zoho].StatusCode}"'
+        - assign:
+            variable: orderItems
+            expression:
+              csharp: new JArray()
+        - foreach:
+            name: For each order item
+            item: orderItem
+            in:
+              csharp: '#var.order.items'
+            do:
+            - task:
+                type: http_request
+                params:
+                  method: GET
+                  result_method: JToken
+                  url: '{{#var.ZohoApiUrl}}/crm/v6/Products/search?criteria=Product_Code:equals:MAG{{#var.orderItem.product_id}}&fields=id'
+                  message: ''
+                  authentication: OAuth
+                  username: ''
+                  password: ''
+                  token:
+                    mode: csharp
+                    value: '#result[Refresh Zoho access token].Body.access_token'
+                  certificate_source: CertificateStore
+                  certificate_file_path: ''
+                  certificate_base64: ''
+                  certificate_key_phrase: ''
+                  certificate_thumbprint: ''
+                  load_entire_chain: true
+                  timeout_seconds: 30
+                  follow_redirects: true
+                  allow_invalid_certificate: false
+                  allow_invalid_charset: false
+                  throw_on_error: false
+                  automatic_cookie_handling: true
+              name: Get product ID from Zoho
+            - decision:
+                name: Get product successful?
+                condition:
+                  csharp: '#result[Get product ID from Zoho].StatusCode == 200'
+                else:
+                - return:
+                    csharp: '#var.errors += $"\nZoho product ID for MAG{#var.orderItem.product_id} not
+                      found. Status code: {#result[Get product ID from Zoho].StatusCode}"'
+            - code:
+                expression:
+                  csharp: |-
+                    {
+                        var item = new JObject {
+                            ["Product_Name"] = new JObject {
+                                ["id"] = #result[Get product ID from Zoho].Body.data[0].id
+                            },
+                            ["Quantity"] = #var.orderItem.qty_ordered
+                        };
+                        #var.orderItems.Add(item);
+                    }
+                statement_mode: true
+              name: Map order item and add to array
+            - return:
+                csharp: '#var.orderItems'
+        - decision:
+            name: All products added?
+            condition:
+              csharp: '#var.order.items.Count == #var.orderItems.Count'
+            else:
+            - return:
+                csharp: '#var.errors += $"\nCould not get all product IDs for Magento order {#var.order.entity_id}.'
+        - task:
+            type: http_request
+            params:
+              method: POST
+              result_method: JToken
+              url: '{{#var.ZohoApiUrl}}/crm/v6/Sales_Orders'
+              message: "{\r\n\t\"data\": [\r\n\t\t{\r\n            \"Subject\": \"Magento Order {{#var.order.entity_id}}\"\
+                ,\r\n            \"Contact_Name\": {\r\n\t\t\t\t\"id\": \"{{#result[Get Contact ID from\
+                \ Zoho].Body.data[0].id}}\"\r\n\t\t\t},\r\n\t\t\t\"Status\": \"{{#var.order.status}}\"\
+                ,\r\n            \"Shipping_Street\": \"{{#var.order.extension_attributes.shipping_assignments[0].shipping.address.street[0]}}\"\
+                ,\r\n\t\t\t\"Shipping_City\": \"{{#var.order.extension_attributes.shipping_assignments[0].shipping.address.city}}\"\
+                ,\r\n            \"Shipping_State\": \"{{#var.order.extension_attributes.shipping_assignments[0].shipping.address.region}}\"\
+                ,\r\n            \"Shipping_Code\": \"{{#var.order.extension_attributes.shipping_assignments[0].shipping.address.postcode}}\"\
+                ,\r\n\t\t\t\"Shipping_Country\": \"{{#var.order.extension_attributes.shipping_assignments[0].shipping.address.country_id}}\"\
+                ,\r\n\t\t\t\"Billing_Street\": \"{{#var.order.billing_address.street[0]}}\",\r\n\t\t\t\
+                \"Billing_City\": \"{{#var.order.billing_address.city}}\",\r\n\t\t\t\"Billing_State\"\
+                : \"{{#var.order.billing_address.region}}\",\r\n            \"Billing_Code\": \"{{#var.order.billing_address.postcode}}\"\
+                ,\r\n            \"Billing_Country\": \"{{#var.order.billing_address.country_id}}\",\r\
+                \n            \"Ordered_Items\": {{#var.orderItems}}\r\n\t\t}\r\n\t]\r\n}"
+              authentication: OAuth
+              username: ''
+              password: ''
+              token:
+                mode: csharp
+                value: '#result[Refresh Zoho access token].Body.access_token'
+              certificate_source: CertificateStore
+              certificate_file_path: ''
+              certificate_base64: ''
+              certificate_key_phrase: ''
+              certificate_thumbprint: ''
+              load_entire_chain: true
+              timeout_seconds: 30
+              follow_redirects: true
+              allow_invalid_certificate: false
+              allow_invalid_charset: false
+              throw_on_error: false
+              automatic_cookie_handling: true
+          name: Insert order in Zoho
+        - decision:
+            name: Insert order successful?
+            condition:
+              csharp: '#result[Insert order in Zoho].StatusCode == 201'
+            else:
+            - return:
+                csharp: '#var.errors += $"\nError while inserting order: {#result[Insert order in Zoho].Body.data[0].message}"'
+        - return:
+            csharp: '#var.inserted += 1'
+    - return:
+        csharp: '#var.errors += $"\nMagento order {#var.order.entity_id} already exists in Zoho CRM."'
+- return:
+    csharp: '#var.errors == "" ? $"{#var.inserted} orders inserted in Zoho CRM." : $"{#var.inserted} orders
+      inserted in Zoho CRM. Process completed with errors: {#var.errors}'

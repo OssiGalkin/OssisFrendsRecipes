@@ -1,0 +1,128 @@
+files measured: 77
+
+=== shape size by BPMN element (non-container) ===
+  task                     n=311  100x80 100.0% (n=311)
+  endEvent                 n=292  36x36 100.0% (n=292)
+  exclusiveGateway         n=286  50x50 100.0% (n=286)
+  scriptTask               n=175  30x30  78.9% (n=138), 100x80  21.1% (n=37)
+  textAnnotation           n=172  100x70   4.7% (n=8), 100x55   4.7% (n=8), 140x70   2.3% (n=4), 130x70   2.3% (n=4)
+  group                    n=163  490x440   1.2% (n=2), 340x420   1.2% (n=2), 430x340   1.2% (n=2), 415x445   1.2% (n=2)
+  startEvent               n=139  36x36 100.0% (n=139)
+  intermediateThrowEvent   n=115  36x36 100.0% (n=115)
+  dataStoreReference       n=77   50x50 100.0% (n=77)
+  dataObjectReference      n=40   36x50 100.0% (n=40)
+  businessRuleTask         n=3    100x80 100.0% (n=3)
+  inclusiveGateway         n=1    50x50 100.0% (n=1)
+
+=== container isExpanded ===
+  isExpanded=true   100.0% (n=61)
+
+=== isMarkerVisible on gateway shapes ===
+  exclusiveGateway     isMarkerVisible=true   100.0% (n=286)
+  inclusiveGateway     isMarkerVisible=None   100.0% (n=1)
+
+=== nesting depth of containers ===
+  depth 1   80.3% (n=49)
+  depth 2   19.7% (n=12)
+
+=== shapes per shared vertical centre line ===
+   2 shapes on one centre line   36.2% (n=106)
+   3 shapes on one centre line   20.8% (n=61)
+   4 shapes on one centre line    9.2% (n=27)
+   5 shapes on one centre line    6.8% (n=20)
+   6 shapes on one centre line    3.4% (n=10)
+   7 shapes on one centre line    2.4% (n=7)
+   8 shapes on one centre line    5.1% (n=15)
+   9 shapes on one centre line    1.4% (n=4)
+  10 shapes on one centre line    2.4% (n=7)
+  11 shapes on one centre line    1.4% (n=4)
+  12 shapes on one centre line    1.7% (n=5)
+  13 shapes on one centre line    1.4% (n=4)
+  14 shapes on one centre line    2.7% (n=8)
+  15 shapes on one centre line    0.7% (n=2)
+  17 shapes on one centre line    0.7% (n=2)
+  18 shapes on one centre line    0.3% (n=1)
+  19 shapes on one centre line    0.3% (n=1)
+  20 shapes on one centre line    0.3% (n=1)
+  21 shapes on one centre line    0.3% (n=1)
+  22 shapes on one centre line    0.3% (n=1)
+  23 shapes on one centre line    0.7% (n=2)
+  25 shapes on one centre line    0.7% (n=2)
+  26 shapes on one centre line    0.3% (n=1)
+  28 shapes on one centre line    0.3% (n=1)
+  most common kind combinations on a shared line:
+    group                                                n=54
+    endEvent + exclusiveGateway + scriptTask + startEven n=48
+    endEvent + exclusiveGateway + task                   n=22
+    endEvent + exclusiveGateway + startEvent + task      n=19
+    endEvent + intermediateThrowEvent                    n=15
+    textAnnotation                                       n=15
+
+=== horizontal gap between consecutive shapes on a row ===
+  gap   55 px   10.4% (n=126)
+  gap   65 px    9.7% (n=118)
+  gap   75 px    6.3% (n=77)
+  gap   60 px    5.5% (n=67)
+  gap   95 px    4.2% (n=51)
+  gap  115 px    3.9% (n=48)
+  gap   70 px    3.8% (n=46)
+  gap   85 px    3.6% (n=44)
+
+=== waypoints per sequence flow ===
+  2 waypoints   90.7% (n=1154)
+  3 waypoints    5.9% (n=75)
+  4 waypoints    3.4% (n=43)
+
+=== vertical relationship of flow endpoints ===
+  same-row    63.4% (n=806)
+  down        28.7% (n=365)
+  up           7.9% (n=101)
+
+=== first/last waypoint on the shape boundary ===
+  first_on_source     99.8% (n=1269)
+  first_OFF_source     0.2% (n=3)
+  last_on_target      99.8% (n=1269)
+  last_OFF_target      0.2% (n=3)
+
+=== exit edge of source, by element kind ===
+  exclusiveGateway         n=572  bottom  49.7%, right  47.2%, top   3.1%
+  task                     n=313  right 100.0%
+  scriptTask               n=175  right  96.0%, bottom   2.3%, off-shape   1.7%
+  startEvent               n=145  right 100.0%
+  subProcess               n=61   right 100.0%
+
+=== entry edge of target, by element kind ===
+  task                     n=326  left  95.7%, top   2.1%, bottom   2.1%
+  endEvent                 n=299  left  54.8%, top  43.8%, bottom   1.3%
+  exclusiveGateway         n=289  left  99.3%, top   0.3%, bottom   0.3%
+  scriptTask               n=175  left  95.4%, top   2.9%, off-shape   1.7%
+  intermediateThrowEvent   n=115  top  98.3%, left   1.7%
+  subProcess               n=63   left 100.0%
+
+=== gateway exit edge, split by where the target sits ===
+  exclusiveGateway   target down      n=292  bottom  96.6%, right   3.4%
+  exclusiveGateway   target same-row  n=256  right  98.8%, bottom   0.8%, top   0.4%
+  exclusiveGateway   target up        n=24   top  70.8%, right  29.2%
+  inclusiveGateway   target down      n=1    bottom 100.0%
+  inclusiveGateway   target same-row  n=1    right 100.0%
+  inclusiveGateway   target up        n=1    top 100.0%
+
+=== incoming/outgoing flow counts per element kind ===
+  task                     n=311  in=1 out=1  94.5%, in=2 out=1   4.8%, in=1 out=2   0.6%
+  endEvent                 n=292  in=1 out=0  97.6%, in=2 out=0   2.4%
+  exclusiveGateway         n=286  in=1 out=2  99.3%, in=2 out=2   0.3%, in=3 out=2   0.3%
+  scriptTask               n=175  in=1 out=1 100.0%
+  textAnnotation           n=172  in=0 out=0 100.0%
+  group                    n=163  in=0 out=0 100.0%
+  startEvent               n=139  in=0 out=1  95.7%, in=0 out=2   4.3%
+  intermediateThrowEvent   n=115  in=1 out=0 100.0%
+  dataStoreReference       n=77   in=0 out=0 100.0%
+  subProcess               n=61   in=1 out=1  96.7%, in=2 out=1   3.3%
+  dataObjectReference      n=40   in=0 out=0 100.0%
+  businessRuleTask         n=3    in=1 out=1  66.7%, in=2 out=1  33.3%
+  inclusiveGateway         n=1    in=1 out=3 100.0%
+
+=== label box vertical placement relative to its shape ===
+  below     40.2% (n=384)
+  above     40.0% (n=382)
+  overlap   19.9% (n=190)
