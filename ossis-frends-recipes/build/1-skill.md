@@ -1,6 +1,6 @@
 # Build 1 — the skill (`SKILL.md`, `references/`)
 
-First of three build prompts. Read `README.md` in this folder first: it says
+First of four build prompts. Read `README.md` in this folder first: it says
 which files this build owns, which it must leave alone, and what is pinned.
 
 
@@ -34,6 +34,23 @@ and returned the page unchanged on later attempts. Test it once, write into the
 skill what actually happened, and do not recommend it on this prompt's say-so. Two things that did work every time: a 404 page suggests the
 nearest real paths, and `sitemap.md` / `llms-full.txt` list everything.
 
+**Recency.** Prefer unversioned paths; they track the current release. Use a
+versioned snapshot (`/frends-6.x.x/...`) only to say when something changed,
+and name the version. Material that is not on docs.frends.com or a FrendsPlatform
+repo and is older than about two years is a lead, not a source. Older community
+material (the `CommunityHiQ` repos and anything framed around them) is legacy:
+cover it only where a step asks for it, and label it so.
+
+**The Frends MCP server is not yours.** Keep two things apart. The MCP
+*features of the platform* — the MCP Trigger that exposes a Process as a tool,
+and the AI Connector calling MCP Tools — are platform mechanics and stay in
+this build (steps 1 and 7). The *Frends MCP server* that an AI assistant
+connects to in order to work on a tenant — its guides, its tools, its
+conventions — belongs to build 4, which writes what the skill knows about it. Do not describe MCP guides or tools in this build, even if you have a
+connection. You may use a connection to *check* a platform fact, but the claim
+you write must still be sourced from docs or public output; if it can only be
+sourced from the server, report it for build 4 instead of writing it.
+
 **Read the Platform API reference too**, under
 `/reference/frends-platform-api/platform-api-reference/`. Its OpenAPI schemas
 state things no prose page does — the `ElementType` enum, the fields of a Process
@@ -47,11 +64,21 @@ been read or deliberately skipped, and the reference file says which.
 
 1. **Core skill from live docs**: Fetch `docs.frends.com`, including
 glossary/integration pages. Recreate vocabulary, core concepts, shapes
-(including Long-Running Process shapes: Checkpoint, Scheduled Resume,
-Signal Resume), triggers (including the MCP Trigger), tasks, `#`
+(including the Long-running Process shapes — take their names from the current
+docs and the `ElementType` enum; earlier builds used names the platform may no
+longer use, so map any older names you find), triggers (including the MCP
+Trigger; take the full list of Trigger types from the Trigger reference, since
+new types arrive in service releases), tasks, `#`
 references and their limitations, Handlebars syntax and escaping, error
 handling, architecture, task catalog usage, C# patterns, and live-doc
 fetching guidance.
+
+   **Use the current canonical names, and map the old ones.** Check what the
+   docs call the editor, a manual test execution, suspending and resuming a
+   Process, calling a Subprocess, and the AI Connector, and use exactly that.
+   Then give a short mapping from words users bring from other platforms
+   (connector, workflow, node, code block, API proxy) and from superseded Frends
+   names to the current term, so the skill can correct them without comment.
 
    Word the second `#result` limitation as the docs mean it. A shape that
    *failed* has no `#result`, so it must not be used in the error-handling path
@@ -63,8 +90,37 @@ fetching guidance.
    that pattern and sent a later tooling session looking for violations that
    were not there.
 
+   Cover configuration scope as the docs and the Platform API reference state
+   it: what an Environment Variable varies by, what a Process Variable varies
+   by — in particular whether its value is stored per Agent Group (the Process
+   Deployments endpoints show this) — what deployment requires of the
+   Environment Variables a Process uses, and the `#process` values that expose
+   the runtime context. Cover trigger concurrency: every setting that limits
+   overlapping runs, on which trigger types it exists, and its scope (whole
+   Agent Group or per Agent). Write the mechanics only; which scope a design
+   needs is judgment and stays out.
+
+   Cover the runtime rules a builder trips over, each only as far as a page
+   states it: Task retry (formula, maximum, whether error responses that do not
+   throw are retried), parallel execution (whether Foreach can run in parallel),
+   Shared State (scope, value and key limits, TTL, whether keys can be listed or
+   matched by pattern), what happens when an HTTP or API caller disconnects, at
+   which level log levels are set, and how long Process Instances are retained:
+   the default and where it is set.
+
+   For the DMN Task, cover what catches people: reference values inside the
+   table are written without the `#` (`var.X`, `env.G.X`), the FEEL range syntax
+   and its bracket semantics (`[18..65)`), and how the table's output is read
+   back (`#result[Display Name].OutputName`). Name the Frends version DMN
+   arrived in. Then say, as **opinion**, when a DMN table is the better choice
+   than an Exclusive Decision or a Code Task — this skill states the mechanics;
+   the choice between them is judgment, and one sentence of it is enough.
+
 2. **Custom Tasks section**: Fetch the custom task creation docs (now under
-`docs.frends.com/tasks/task-guides/`) and the current `.NET 8` template.
+`docs.frends.com/tasks/task-guides/`) and the current template. Write down the
+target framework the template and the docs declare now, and for which Frends
+versions; it has moved between releases, so do not carry a version over from an
+earlier build or from this prompt.
 Note: `FrendsPlatform/FrendsTaskTemplate` was archived in April 2026 and
 the template moved into the monorepo at
 `github.com/FrendsPlatform/FrendsTasks` (folder `FrendsTaskTemplate`) —
@@ -87,6 +143,18 @@ publishing that API to external developers (concepts, roles, publishing
 flow, token/auth mechanics incl. the `ApiProductId` claim and
 auto-created Private Applications, audit log, white-labeling).
 
+   For API Policies, look for each of these and write what a page states:
+   the parts of a policy; whether overlapping method + path + Agent Group
+   coverage is rejected at save; how paths match (prefix, segment boundaries,
+   trailing slash) and which rule wins inside a policy (exact path, explicit
+   method vs `ALL`); what each identity type is scoped to (Environment or Agent
+   Group) and which can be combined in one policy; OAuth claim rules and the name
+   claim shown in API Monitoring; whether the OpenAPI `securitySchemes` affects
+   runtime security; what happens to an endpoint with no policy; whether HTTP
+   Trigger endpoints are governed; what logging and throttling can be set and at
+   which scope; and what the migration from the older access-policy model
+   produces. How to *organise* policies is judgment and stays out.
+
 4. **Business Automation Portal / BAP add-on**: Fetch `docs.frends.com/bap`
 subpages. Recreate concepts, developer template-tagging flow,
 business-user workflow, Organizations configuration, Shop Configuration,
@@ -99,6 +167,26 @@ Recreate technology stack, HA requirements, scaling axes, versioning, and
 security. Avoid stale-prone sizing numbers unless directly sourced from
 current official docs.
 
+   Include the Agent itself as the docs describe it: the configuration files it
+   reads, their precedence, which ones an install or update overwrites and where
+   lasting changes go; the application-settings reference pages per version and
+   the settings each version added; container and Kubernetes specifics (secret
+   file location, deployment models, persistent paths); transport fallbacks when
+   message-bus ports are blocked; what happens to messages that do not fit the
+   message bus, and where they go; how an Agent's HTTPS certificate is
+   configured on each platform, what an update does to that setting, and when
+   the Agent asks callers for a client certificate; legacy versus cross-platform
+   Agents and their target frameworks, host runtime requirements and supported
+   host operating systems and versions; Agent Group settings; and
+   the Synchronize Agents action — what it does, when it runs on its own, and
+   when to use it. Name the version each setting or behaviour belongs to.
+
+   Include deployment as the docs describe it: the deployment models (cloud,
+   hybrid, on-premises variants), the Agent registration modes, the choice
+   between deploying and deploying with Triggers activated, the difference
+   between a Process being deployed and its Triggers being active, how a new
+   version takes over from running instances of the old one, and rollback.
+
 6. **Monitoring & Operations**: Fetch the monitoring/operations docs on
 `docs.frends.com`. Recreate the Process Instance list, per-shape logging
 options and log-size caps, Promoted Values, Monitoring Rules, and the
@@ -106,7 +194,8 @@ operational dashboard — this is the "review and operate a running
 process" half of the skill, distinct from the "build a process" half
 covered in step 1.
 
-7. **AI Connector**: Fetch the Intelligent AI Connector and Agentic AI
+7. **AI Connector**: Fetch the AI Connector (earlier marketed as the "Intelligent
+AI Connector"; use the name the docs use now) and Agentic AI
 docs on `docs.frends.com` (this is the core reason for the skill, so don't
 let it fall out as an implicit side effect of step 1). Recreate what it is
 (a native BPMN task — AI as a step inside a process, not a controller of
@@ -150,42 +239,46 @@ are good at.
    built by prompts 2 and 3. In this build: write
    `references/templates-and-exports.md` from the Appendix and the docs; tell
    the reader not to hand-write or hand-edit the `Bpmn` field; and **leave
-   alone** what build 3 owns — `references/process-generation.md`, the section
-   "The two import paths validate differently" and the per-installation GUID
-   paragraph in `templates-and-exports.md`, and the one router row and one
-   sentence in `SKILL.md` that point at `scripts/`. If those exist, they
-   survive your rebuild unchanged; diff to confirm. If they do not exist yet,
-   do not invent them: only imports can supply them.
+   alone** what builds 3 and 4 own and what is pinned — `references/process-generation.md`,
+   the section "The two import paths validate differently" and the
+   task-GUID paragraph in `templates-and-exports.md`, the one router
+   row and one sentence in `SKILL.md` that point at `scripts/`,
+   `references/mcp.md` and the MCP block and router row in `SKILL.md`, and the
+   pinned local-notes sentence. If those exist, they survive your rebuild unchanged;
+   diff to confirm. If they do not exist yet, do not invent them: only imports
+   and an MCP connection can supply them.
 
-10. **Nothing unsourced.** Do not create a lore file. A claim that cannot be
-tied to a live page, or to a direct observation labelled as one, is left out of
-the skill. In its place the router carries one rule: for what the skill does not
-cover — compliance certifications, retention limits, sizing, runtime
-internals — fetch the live docs or say you don't know; do not fill the gap from
-memory.
+   Also write into this file, near the top: a Process export contains an
+   organisation's integration logic and sometimes business data, so the reader
+   must confirm they are allowed to give one to an AI before pasting or
+   uploading it.
 
-   The claims below were carried as "believed true" by an earlier build and
-   removed once they could not be sourced. Treat them as a **verify-or-omit
-   checklist**: try each
-   against the live docs. One that verifies goes into the proper reference file
-   with its source page. One that does not is omitted — not softened, not
-   flagged, omitted. Report at the end which verified and which did not, so the
-   list can shrink.
+10. **Platform best practices**: Fetch the Best Practices Collection
+(`/guides/general/frends-best-practices-collection.md`) and every guide it links
+to, plus the Integration Security guidance. Put the Frends-specific
+recommendations into the reference file they belong to — logging levels and
+identifiers-not-payloads in monitoring, credentials in Secret Environment
+Variables and the skip-logging option in the security part, Remote
+Subprocesses at volume in platform internals, deploying an API together with its
+linked Processes in API management — each with its page. Do not create a
+best-practices file that repeats them, and do not restate general integration
+advice the page gives (design before building, retry only transient errors):
+that belongs to an architecture skill, not to this one. The test for every
+line: would it be wrong on a platform other than Frends? If not, leave it out.
+Extend the router's build/review checklist only with items the page supports.
 
-   ISO 27001/9001/14001 certifications, SOC 2 compliance, Nixu audit,
-   NIS2/GDPR assessment services, EU-only Azure hosting plus Cleura and
-   air-gapped options, TLS 1.2+/AES-256/Key Vault encryption details, 60-day
-   max log retention with indefinite process definitions, per-process
-   zero-retention mode, Service Bus large-payload offload to Blob Storage via
-   SAS URI, single-threaded process instances, Shared State TTL 1 min–30 days,
-   K8s autoscaling under load, semantic auto-versioning (auto patch, manual
-   major/minor), BAP hiding technical logs and deleting non-deployed trial
-   instances, Shop Configuration contents (global tags, categories, default
-   Agent Groups), API Portal audit records retained indefinitely, and the
-   legacy docs archive at intercom.help/frends-docs.
+11. **Nothing unsourced.** A claim that cannot be tied to a live page, or to a
+direct observation labelled as one, is left out of the skill. In its place the
+router carries one rule: for what the skill does not cover — compliance
+certifications, platform-level retention beyond what the log settings state,
+sizing, runtime internals — fetch the live
+docs or say you don't know; do not fill the gap from memory. Directly after that
+rule, copy the pinned local-notes sentence from `README.md` verbatim. Do not
+create the file it mentions, and do not read it as a source if one is installed.
 
-11. **Every claim carries its evidence class, and the classes are not equal.**
-Four kinds of statement end up in a skill like this, and a reader has to be able
+12. **Every claim carries its evidence class, and the classes are not equal.**
+The classes are defined in `README.md`. Four of them end up in what this build
+writes — the fifth, *Served by MCP*, is build 4's — and a reader has to be able
 to tell them apart:
 
     - **Documented** — a live page says it. The default; cite the page in the
@@ -203,20 +296,28 @@ to tell them apart:
 
     Where two live pages contradict each other, say so and name both, rather
     than silently picking one. (The logged-data cap is stated as 8192 characters
-    on the Process Instances page and 10,000 on Process Log Settings.) Where a
-    fact is version-dependent, say which versions you checked — numbering and
-    enums have moved between releases.
+    on the Process Instances page and 10,000 on Process Log Settings.) Before
+    calling two pages contradictory, check whether they describe different
+    scopes or different versions. For example, a guide saying public access
+    replaces the other authentication methods describes one identity, while the
+    API Policies reference describes several identities in one policy, which
+    can be combined from 6.3; both can be true. Where a fact is
+    version-dependent, say which versions you checked — numbering, enums and
+    defaults have moved between releases. The default Process target framework
+    is one: say which version made the current default the default, and treat a
+    page that still names an older default as out of date, not as a second
+    truth.
 
-12. **Nothing private.** No tenant names or URLs, no exports from a tenant, no
-per-installation GUIDs, no person's name or email address. `yourtenant` and
+13. **Nothing private.** No tenant names or URLs, no exports from a tenant, no
+tenant GUIDs, no person's name or email address. `yourtenant` and
 `example.com` in examples.
 
-13. **Version the snapshot, do not date it.** Name the Frends version the docs
+14. **Version the snapshot, do not date it.** Name the Frends version the docs
 described, in one place. A calendar date settles nothing a re-fetch cannot, and
 every copy of it is one more thing to forget on the next rebuild.
 
 
-14. **Audit your own output before calling the build done.** Go through the
+15. **Audit your own output before calling the build done.** Go through the
     skill claim by claim and satisfy yourself that each one is in one of the four
     classes above and is marked accordingly. Specifically:
 
@@ -224,9 +325,13 @@ every copy of it is one more thing to forget on the next rebuild.
       number carried over from a previous build.
     - Re-fetch the live page for a sample of documented claims, including every
       one that a reader might act on in a security, compliance or audit context.
-    - List, in your closing message, anything you could not source, anything you
-      dropped from the verify-or-omit checklist, and anything where the docs
-      disagreed with each other or with the corpus.
+    - List, in your closing message, anything you could not source, and
+      anything where the docs disagreed with each other or with the corpus.
+
+    - Run the scenarios in `scenarios.md` marked for build 1, as the skill's
+      user with only `SKILL.md` and `references/` open and **no MCP
+      connection**, and report pass/fail per scenario. A failure is fixed in the
+      skill, not in the scenario.
 
     An earlier build asserted that the docs never state the shape `Type`
     numbering. They do — the Platform API reference publishes the `ElementType`

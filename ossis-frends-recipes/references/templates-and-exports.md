@@ -2,6 +2,8 @@
 
 Sources: `https://docs.frends.com/reference/process-development/template.md`, `https://templates.frends.com`, `https://github.com/FrendsPlatform/FrendsTemplates` (templates under `/Templates`, arranged category → source system; each has `process.json`, `metadata.json`, `long-description.md`, `assets/`). The JSON-shape knowledge below was **verified empirically**: a public template imported into a Tenant, a Process created from it, and the resulting export diffed against the original template.
 
+**Before pasting or uploading an export:** a Process export contains an organisation's integration logic and sometimes business data. Confirm you are allowed to give it to an AI first.
+
 ## Templates in the product
 
 A Template = versioned snapshot of a Process (flow, shapes, config, Process Variables) used as a baseline for new Processes. Two purposes: (1) development reuse in the Control Panel — one Template as source of truth for many Processes, with "Update Processes" to propagate a new version and divergence tracking; (2) the BAP Integration Catalogue for business users. Both Processes and Subprocesses can become Templates.

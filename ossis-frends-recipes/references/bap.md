@@ -1,32 +1,23 @@
 # Business Automation Portal (BAP) — add-on
 
-No-code portal where **business users** run and manage integrations built by developers; white-labelable, so ISVs/SaaS partners embed it as their own product. Purchased separately via Frends Sales. Docs: `https://docs.frends.com/bap/` (subpages under `/bap/general/…`, `/bap/guides/…`, `/bap/release-notes/…` — release notes state required Frends version, e.g. BAP 1.0.3 requires Frends 6.2 and added Long-Running Process support; check the Frends Version Compatibility page).
+Built for Frends 6.3.x from: `/bap/general/organizations.md`, `/bap/general/users.md`, `/bap/general/shop-configuration.md`, `/reference/process-development/template`, and search excerpts of `/bap/general` (index), `/bap/release-notes/bap-version-1.0.1` and `bap-version-1.0.5`. Not read this run: Look & Feel, Single Sign-On, the BAP guides.
 
-## The tag-based model
+A separate, simplified no-code UI deployed alongside the main Frends UI, where business users discover Templates, configure them and run them in the connected Tenant; also usable as an embedded iPaaS by ISV/SaaS partners (BAP 1.0.1 notes, which required Frends 6.0.3+). **BAP 1.0.5 requires Frends 6.2 or newer**, adds Promoted Variables to BAP instance views and moves BAP to .NET 10.
 
-Everything in BAP is wired through **Frends Tags**:
+## How content reaches BAP — Tags
 
-1. **Developer flow:** build and test a Process in Frends → move config to **Process Variables** (not `#env`) so users can fill them in → create a **Template** from it (Templates list) → give the Template tags. Template tags control which BAP Organizations see it in the **Integration Catalogue**.
-2. **Business-user flow:** pick a Template from the catalogue → guided wizard fills Process Variables → **test run** in the org's Test Agent Group → deploy to the org's Production Agent Group → monitor executions (execution graph and details shown in BAP, without exposing the wider Tenant).
-3. **Pre-created Processes:** alternatively tag an existing Process in Frends with a tag listed in the org's "viewable" tags; it must be **deployed to the Production Agent Group** (may take up to ~10 min to appear) and shows as **view-only** in "My Integrations".
+- **Templates**: a Template's **Template tags** decide which Organizations see it in the **Integration Catalogue**. A business user picks it, fills the Process Variables in a guided wizard, runs a test execution in a test environment, then deploys to production; execution details show without exposing the wider Tenant (Template page). Hence: put configuration in **Process Variables** with defaults, not `#env`.
+- **Existing Processes**: tag them with one of an Organization's "Processes with Tag viewable" tags; they **must already be deployed to a production Agent Group** and may take up to 10 minutes to appear.
 
-## Organizations (the segregation unit)
+## Organizations
 
-Created either by public request from the login page (Portal Admin approves) or directly by a Portal Admin (Settings → Organizations → New organization). Settings per org:
+The segregation unit. Created by a public request from the login page (a Portal Admin accepts or denies) or by a Portal Admin (Settings → Organizations → New organization). Fields: **Name** (unique), **Contact email** (first org admin), **Assign Tag to Processes created by Organization**, **Processes with Tag viewable by the Organization**, **Agent Groups: Test and Production** (required), **Integrations available to Organization** (tag list), **Delete Organization** (removes its Processes and user associations; irreversible).
+"Domains to auto assign" was **discontinued in BAP 1.0.2** — now the SSO configuration's *Associated domains* and the invitation dialog's *Initial organization*. (The managing-section of the same page still lists the old field.)
 
-- **Name** (unique), **Contact email** (becomes first org admin).
-- **Domains to auto assign** — users with matching email domains auto-join.
-- **Assign Tag to Processes created by Organization** — auto-tag for everything the org creates (governance/scoping).
-- **Processes with Tag viewable by the Organization** — which existing Frends Processes appear (view-only).
-- **Agent Groups: Test + Production** (required) — where the org's instances run.
-- **Integrations available to Organization** — tag list controlling which Templates the org sees ("Configure" button).
-- **Delete Organization** — removes org, its Processes and user associations, irreversibly.
+## Roles
 
-## Roles, auth, configuration
+Exactly three: **Portal Admin** (independent of any organization; everything in Settings; the only role that configures template and process tags per org; created only by another Portal Admin from Users), **Organization Admin** (manages the org's users), **Organization User** (creates Processes from available Templates, sees the org's Processes). One user can belong to several organizations with a different role in each and switches organization from the profile menu.
 
-- **Portal Administrator**: approves org requests, manages all orgs, whitelabeling, environment connections, auditing. **Organization admin/users**: invite-based onboarding within the org.
-- Auth: invite-based accounts; optional **SSO** (separate configuration).
-- **Shop Configuration** (Settings): enabling and configuring the catalogue/shop experience — which templates are offered and how.
-- **Look & Feel**: logo, favicon, catalogue title/text, page-title prefix, landing-page text, custom CSS and extra `<head>` entries — full white-labeling.
+## Shop Configuration (Portal Admin)
 
-BAP itself is updated by Frends automatically, in tandem with the iPaaS.
+Template tags available to **all** organizations; **Categories** (groups of tags used as search filters); default **test and production Agent Groups** used when an org sets none.

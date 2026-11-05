@@ -1,6 +1,6 @@
 # Build 3 — the process export generator (`scripts/frendsgen/`)
 
-Third of three build prompts. Read `README.md` in this folder first: it says what this one
+Third of four build prompts. Read `README.md` in this folder first: it says what this one
 may write, what it receives from the other two, and in which order they run.
 
 ---
@@ -38,7 +38,11 @@ differently. Do not rebuild for the prompt's sake.
   real exports into the corpus, list installed tasks and their GUIDs, and import
   generated files directly. That last one replaces the human-mediated,
   truncation-prone paste channel described under import testing, and changes
-  the economics of every loop below.
+  the economics of every loop below. A connection is only a better input
+  channel here: what the skill tells its *user* about the MCP server is build
+  4's, so do not describe its guides or tools in `process-generation.md`. When
+  an import or a task binding came through the server rather than a human,
+  say so in `scripts/README.md` next to the evidence it produced.
 - **A human with a tenant** who will import files you hand them. Assume that
   channel corrupts files above roughly 10,000 characters unless the file is
   delivered as a download and checked by md5.
@@ -46,8 +50,9 @@ differently. Do not rebuild for the prompt's sake.
 ## The corpus is a sample, not the specification
 
 The public templates cover **14 of the 25 documented shapes**. Absent entirely:
-Catch, Call Subprocess, DMN Task, AI Connector, Checkpoint, Scheduled Resume,
-Signal Resume, and every artifact type. The templates also carry hundreds of
+Catch, Call Subprocess, DMN Task, AI Connector, the Long-running suspend/resume
+shapes (use the names `SKILL.md` records from the current docs), and every
+artifact type. The templates also carry hundreds of
 artifact elements (annotations, groups, associations) that any spec-driven
 regeneration discards, so generated diagrams are visibly barer than hand-built
 ones even where the runtime behaviour matches.
@@ -91,11 +96,14 @@ generated.
 
 ## Nothing tenant-specific is stored
 
-This tool is published. A task GUID is per-installation (below), so the tool
-needs the target's GUIDs — and must not carry anyone's.
+This tool is published. A task GUID can differ between Tenants (below), so the
+target may hold a task under a different GUID than the templates use — and the
+tool must not carry any Tenant's GUIDs.
 
-- Ship only the bindings found in the public corpus.
-- Read the target's bindings **at run time** from an export the user supplies
+- Ship only the bindings found in the public corpus, and bind to them by
+  default. They are public, and they are what the generator uses when the user
+  supplies nothing else.
+- When the target's GUIDs differ, read them **at run time** from an export the user supplies
   (`generate --tasks-from <export>`), matching tasks by `LinkedTasks[].PackageId`,
   the only place an export names a task in words. `lift` and the self-tests learn
   bindings the same way from whatever files they are pointed at.
@@ -128,7 +136,7 @@ Variables.
 | Environment variables (`#env`) | The templates are `#var`-only for portability, so `RequiredEnvironmentVariables` is always empty and the closure rule is never exercised. |
 | **Scope + Catch** | No `boundaryEvent` and no plain Scope anywhere in the corpus. The most important gap: without it the tool cannot express the error handling most real integrations need. |
 | Code Task in expression mode (`useStatementMode: false`) | No instance in the corpus and none in the one tenant export seen. Emit it if asked, label it unverified. |
-| Inclusive Decision, Shared State, DMN, AI Connector, Checkpoint, Resume shapes | Documented, absent from the corpus. |
+| Inclusive Decision, Shared State, DMN, AI Connector, Long-running suspend/resume shapes | Documented, absent from the corpus. |
 | Artifacts — annotations, groups, associations, data objects and stores | No runtime behaviour, but their absence makes generated diagrams look sparse next to hand-built ones. |
 | Promoted result values | Half-present in the shape record; `PromotedResultVariablesJson` never exercised. |
 | Arbitrary flow graphs | The IR is a tree of sequences. Multiple predecessors, merges to anywhere other than the decision's successor, and multiple start events are all unsupported. |
@@ -182,13 +190,14 @@ rather than the corpus it is marked, because that is the stronger evidence.
   record's `ProcessVariablesJson` in ProcessExports. Both forms confirmed.
 - `UsedTasksJson` GUID casing follows the export form: uppercase in Templates,
   lowercase in the tenant's own ProcessExport.
-- **Task GUIDs are per-installation.** The public templates bind
-  `Frends.HTTP.Request` to one GUID (package 1.1.2); the tenant had the same task
-  under a different GUID (1.4.0). Same schema, different id. Every file generated
-  from the corpus alone points at a task the target may not have. The generator
-  must print the GUIDs it bound and warn that they are installation-specific.
-  Whether Frends can resolve a task by package name instead of GUID is untested —
-  a one-task file on each binding would settle it.
+- **Task GUIDs can differ between Tenants.** The same task package has been
+  seen under a different GUID in a Tenant than in the public templates: same
+  schema, different id. The generator binds to the GUID found in the public
+  templates by default, prints every GUID it bound, and warns that the target
+  Tenant may hold the task under a different one; `--tasks-from <export>`
+  rebinds to the target's GUIDs. Whether Frends can resolve a task by package
+  name instead of GUID is untested — a one-task file on each binding would
+  settle it.
 - Import acceptance is not execution. Nothing generated has been *run*.
 
 **A misreading to avoid.** The docs say a shape's `#result` must not be used in
@@ -326,7 +335,7 @@ Into the skill, and nowhere else:
   `--tasks-from` and the look-at-it step; import-testing discipline; and the
   format facts, each marked **[corpus]** or **[import]**.
 - The section "The two import paths validate differently" and the
-  per-installation GUID paragraph in **`references/templates-and-exports.md`**.
+  task-GUID paragraph in **`references/templates-and-exports.md`**.
   The rest of that file belongs to the skill build; add, do not rewrite.
 - The one router row and the one sentence in `SKILL.md` that point at the tool.
   Nothing else in `SKILL.md`.
@@ -336,3 +345,6 @@ open, write a new spec for a small integration, including one typo in a
 `#result` name and one unsupported construct. Both must be caught with a message
 that names the problem. If you had to open the source to write the spec, the
 reference is not done.
+
+Then run the generator scenarios (G) in `scenarios.md` the same way, and
+report pass/fail for each.

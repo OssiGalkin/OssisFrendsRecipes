@@ -1,6 +1,6 @@
 # Build 2 — the diagram toolchain (`scripts/frendsgen/diagram/`)
 
-Second of three build prompts. Read `README.md` in this folder first: it says what this
+Second of four build prompts. Read `README.md` in this folder first: it says what this
 one may write, what it must hand to the next one, and in which order they run.
 
 ---
@@ -109,8 +109,8 @@ labels — never skipped.** A silent skip produces a spec that round-trips
 perfectly while missing shapes: the most dangerous failure in the pipeline,
 because every downstream check reports success.
 
-Expect unknowns. Catch, plain Scope, Call Subprocess, DMN Task, AI Connector,
-Checkpoint, Scheduled Resume and Signal Resume appear nowhere in the public
+Expect unknowns. Catch, plain Scope, Call Subprocess, DMN Task, AI Connector and
+the Long-running suspend/resume shapes appear nowhere in the public
 template repo, so if your corpus is richer than that you will meet Types no prior
 mapping covers. Identify each, then extend.
 

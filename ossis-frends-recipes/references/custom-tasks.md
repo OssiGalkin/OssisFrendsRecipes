@@ -1,12 +1,22 @@
 # Creating Custom Tasks (C# / .NET 8)
 
+**Built for Frends 6.3.x** from `/tasks/task-guides/creating-custom-tasks` (full read), `/tasks/task-guides/frends-official-task-development-guidelines` and `/management-and-operations/task-management` (search excerpts).
+
+- The custom-task page calls it the **".NET 8 Task template"** and links the monorepo folder `github.com/FrendsPlatform/FrendsTasks/tree/main/FrendsTaskTemplate`; minimum .NET SDK 8.0. The official guidelines page still links the old `FrendsPlatform/FrendsTaskTemplate` repo and says the template targets .NET 8 — the two pages disagree on the location; the custom-task page is the newer link.
+- `FrendsTaskMetadata.json`: the custom-task page says at the **root of the NuGet package**; the guidelines say it **must exist in the Task project folder** (handled by the template). Format: `{"Tasks":[{"TaskMethod":"Namespace.Class.Method"}]}`.
+- Processes in 6.3 compile to .NET 10 (6.3.0 release notes); no page read says the Task template moved past .NET 8. The Task Management page still describes `.NETCoreApp 6.0` packages as working for Processes targeting ".NET versions 6 and 8, which is the latest and default" — dated wording.
+- The guidelines say **target .NET 8 in all new Task development** (.NET 6 only with approval), while the same page's sample project file still shows `<TargetFrameworks>net6.0</TargetFrameworks>`. The template's own project files (`FrendsTasks` repo, main-branch archive read at build time) target **`net8.0`**, so the template follows the guidelines, not the sample.
+- **Companion:** `FrendsTaskSkills/frends-task-creator` in the same repository is an Agent Skill (Claude Code plugin `frends-task-creator@frends-tasks`) that scaffolds from `dotnet new frends-task`, swaps the reserved `Frends.*` prefix for your own, and checks the guidelines. This file does not depend on it.
+- Partner Tasks must not use the `Frends.*` namespace (guidelines). Task parameters and results must not expose third-party classes (guidelines).
+- Carried, not re-verified this run (template README not read): the `dotnet new` scaffold commands and the Input/Options/Result + CancellationToken skeleton below.
+
 Primary doc: `https://docs.frends.com/tasks/task-guides/creating-custom-tasks.md` (also `frends-official-task-development-guidelines.md` and `publishing-tasks-to-frends-official-channels.md` in the same folder).
 
 A Custom Task is a .NET class library packed as a NuGet package (.nupkg) and imported via the Tasks admin page in the Control Panel. Use one when no ready-made Task fits and the logic needs third-party libraries that Code Tasks can't load.
 
 ## Template (current, .NET 8)
 
-**Repository note:** `FrendsPlatform/FrendsTaskTemplate` was **archived April 2026**; the template now lives in the monorepo at `https://github.com/FrendsPlatform/FrendsTasks/tree/main/FrendsTaskTemplate`. Check there for the latest instructions — GitHub tree pages block automated fetch, so use search or the raw README if needed.
+Template location per the custom-task page: `https://github.com/FrendsPlatform/FrendsTasks/tree/main/FrendsTaskTemplate`.
 
 Install and scaffold (commands from the template README, still valid):
 
@@ -58,14 +68,14 @@ public class DoSomething
 
 ## Discovery, docs, packaging
 
-- `FrendsTaskMetadata.json` at NuGet root whitelists Task methods: `{"Tasks":[{"TaskMethod":"Frends.TaskLibrary.FileActions.DoFileAction"}]}`.
+- `FrendsTaskMetadata.json` (location: see the disagreement above) whitelists Task methods: `{"Tasks":[{"TaskMethod":"Frends.TaskLibrary.FileActions.DoFileAction"}]}`.
 - **XML documentation comments** surface in the Process Editor. Enable XML doc file generation; the file must be inside the NuGet and named after the package id (`Frends.TaskLibrary.xml`). Parameter-level comments are checked first, then type-level.
 - Package with `dotnet pack`. **Assembly name and package id must be identical** (`Frends.TaskTemplate.dll` ↔ `Frends.TaskTemplate.1.0.0.0.nupkg`). Legacy code sometimes needs nuget.exe + .nuspec.
-- Import: Control Panel → Task Management (admin) → upload the .nupkg.
+- Import: Task Management → **Import Task NuGet**. Updating a package can skip updating Processes that use it; deployed Processes are never changed in place — an update only creates a new Process version (Task Management page).
 
 ## Debugging official Tasks
 
-Sources: `git clone https://github.com/FrendsPlatform/Frends.<Package>.git` → open the .sln → run unit tests first (some need a target system; check README) → replicate the issue as a unit test. Fix routes: (1) GitHub issue + email support@frends.com, (2) fork + PR + email support, (3) copy source into your own Custom Task.
+Sources: `git clone https://github.com/FrendsPlatform/Frends.<Package>.git` → open the .sln → run unit tests first (some need a target system; check README) → replicate the issue as a unit test. Fix routes: (1) GitHub issue + contact Frends support, (2) fork + PR + email support, (3) copy source into your own Custom Task.
 
 ## Legacy template — maintenance only
 

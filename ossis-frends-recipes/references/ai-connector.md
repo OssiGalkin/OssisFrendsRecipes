@@ -1,17 +1,33 @@
 # AI Connector & Agentic AI
 
-Docs: `https://docs.frends.com/frends-development/agentic-ai.md` (+ `/intelligent-ai-connector.md`, `/model-context-protocol.md`), reference `https://docs.frends.com/reference/shapes/activity-shapes/ai-connector.md`, guides under `/guides/ai-features/`, audit at `/management-and-operations/dashboard-and-monitoring/ai-audit-logs.md`.
+Built for Frends 6.3.x from: `/reference/shapes/activity-shapes/ai-connector`, `/reference/triggers/mcp-trigger.md`, `/frends-development/agentic-ai.md`, `/frends-development/agentic-ai/model-context-protocol.md`, `/release-notes/frends-6.3/version-6.3.0.md` and `/release-notes/frends-6.3/new-features.md` (search excerpts), `/reference/frends-platform-api/platform-api-reference/models.md` (`NativeAi` element type), `/reference/architecture/agent-application-settings.md` (`NativeAiSettings`), `/get-started/frends-glossary.md`.
+The Frends MCP **server** that AI assistants connect to is not covered here — that is `mcp.md` (build 4). This file covers the platform features: the AI Connector shape and the MCP Trigger.
 
-## Design philosophy — lead with this
+## Names
 
-The **Intelligent AI Connector is a native BPMN shape: AI as a step *inside* a deterministic Process, not a controller of it.** The Process remains the outer structure — it decides when the AI step runs, what data it gets, and what happens with the result. Typical pattern: **Trigger → (gather data) → AI Connector → Exclusive/Inclusive Decision routing on the result → deterministic handling**. Human approval checkpoints are ordinary process shapes (and since 6.2, Long-Running Process shapes let a flow dehydrate while waiting for approval). Every AI action is logged as part of the execution trace — decisions, tool calls, observations — in the same Process Instance log as everything else, plus tenant-wide **AI Audit Logs**. Use it for fuzzy/NLP steps (classification, extraction, generation), not to replace integration logic.
+The shape's reference page is titled **AI Connector**; the docs section and older pages call it the **Intelligent AI Connector**. In exports its element type is `NativeAi`.
 
-## Shipped vs. not shipped (re-verify in the release notes)
+## What it is
 
-- **SHIPPED in Frends 6.3:** the agentic mode. AI Connector supports **MCP Tools** — from Frends' own MCP Triggers and from external MCP servers — with a reasoning loop: model picks a tool → Agent calls it → result returned to model → repeat until resolution or iteration cap. This is the capability earlier roadmap talk called "AI Connector v2 / ReAct-style loops". Also 6.3: MCP Trigger turns any Process into an MCP Tool; MCP works both directions.
-- The toolbox is a hard permission boundary (AI can only call explicitly listed tools), reasoning depth is capped and configurable, and each step is in the execution log.
-- Names like "AI Toolbox" / "AI Cortex" from older roadmap material: **do not claim these as shipped products** — check `https://docs.frends.com/release-notes/` before referencing them.
-- Other shipped AI assistance (separate from the Connector): AI Task Configurator, AI Code Generator, Documentation Generation.
+An activity shape — AI as a step inside a Process, which keeps control of when it runs, what data it gets and what happens to the result. Typical shape: Trigger → gather data → AI Connector → decision routing on the result → deterministic handling. The docs' Agentic AI page frames agentic use for problems where the right sequence of actions depends on context not known at design time.
+
+## Shipped vs roadmap (as captured for 6.3.0)
+
+- **Shipped in 6.3.0** (release notes): the AI Connector can be configured to use **MCP Tools** — tools published by Frends Agents and by external MCP servers; reasoning steps became opt-in; the Process Editor supports **MCP Triggers**; improved visualisation of Long-running Process state.
+- The AI Connector "becomes agentic when Tools are configured on it": with at least one Tool source it fetches the tool list and enters a reasoning loop instead of producing one response (Model Context Protocol page).
+- MCP works both ways: Processes exposed as tools (MCP Trigger), and the AI Connector consuming tools from Frends and external sources.
+- The 6.1-era AI Connector page described API calls inside the AI step and Computer Use as **future roadmap**. Treat any roadmap name (including "AI Toolbox", "AI Cortex") as unshipped unless the current release notes say otherwise; name the version your answer reflects.
+
+## MCP Trigger
+
+- Each Agent is an independent MCP server at `/mcp` (JSON-RPC over HTTPS; `tools/list`, `tools/call`). `tools/list` returns only tools the caller may use.
+- Fields: `name` (tool identifier; unique across activated Processes in the Tenant; also the endpoint identifier in the API Policy), `title`, `description`, `inputSchema`, `outputSchema` (enables "Create Return Shape"), annotations `readOnly` / `destructive` / `idempotent` / `openWorld` (hints only).
+- Auth: external clients need a token with an **`mcp_tools`** claim (`"*"`, one name, or an array), issued via a Private Application or OAuth application and granted through an API Policy. AI Connectors in the **same Agent Group** bypass this authentication (internal call).
+- Reference values: `#trigger.data.tool`, `#trigger.data.arguments.<name>`. The same page also says `inputSchema` gives autocomplete for `#trigger.data.body.*` — it contradicts its own reference-value section; prefer `arguments` and verify in the editor.
+- `#trigger.type` has no documented value for MCP Trigger (the Trigger page's table omits it).
+- `NativeAiSettings` (Agent): `FrendsAiClientTimeoutSeconds`, `FileDownloadClientTimeoutSeconds`, both default 100. From 6.3.1 `EnforceServerCertificateForNativeAiDownloads` controls TLS validation for file URLs in AI Connector parameters.
+
+*Below re-checked this run against `/reference/shapes/activity-shapes/ai-connector` (full read). The `/guides/ai-features/` guides were deliberately skipped (how-to walkthroughs; the reference page covers the options); the 'Recipes' list names them only. In the page's GPT-4 custom-options table `temperature` is 0.0–1.0, while the Temperature field itself is 0.0–2.0 — both on the same page. Model lineup changes; check Administration > Frends AI Models.*
 
 ## Configuration essentials
 

@@ -1,116 +1,97 @@
 ---
 name: ossis-frends-recipes
-description: Expert knowledge for the Frends iPaaS (Integration Platform as a Service). Use this skill whenever the user mentions Frends, asks how to build, modify, or review integrations, Processes, Subprocesses, APIs, Tasks, or Triggers in Frends, needs help with C# expressions, Handlebars, or reference values (#var, #env, #result, #trigger, #process), wants to create custom Tasks in C#/.NET 8, asks about API Management, API Portal, Business Automation Portal (BAP), the AI Connector or agentic AI in Frends, debugging or troubleshooting a failing Process or Process Instance, monitoring and operating running Processes, Process/Template exports and imports, platform architecture (Agents, Agent Groups, HA, scalability, security), or migration from BizTalk or other iPaaS platforms to Frends. Also use for reviewing exported process.json files and Frends Templates, and for generating importable Process exports or Frends-style BPMN diagrams from a spec.
+description: Expert knowledge for the Frends iPaaS (Integration Platform as a Service). Use this skill whenever the user mentions Frends, asks how to build, modify, or review integrations, Processes, Subprocesses, APIs, Tasks, or Triggers in Frends, needs help with C# expressions, Handlebars, or reference values (#var, #env, #result, #trigger, #process), wants to create custom Tasks in C#/.NET, asks about API Management, API Portal, Business Automation Portal (BAP), the AI Connector or agentic AI in Frends, debugging or troubleshooting a failing Process or Process Instance, monitoring and operating running Processes, Process/Template exports and imports, platform architecture (Agents, Agent Groups, HA, scalability, security), working through Frends MCP, or migration from BizTalk or other iPaaS platforms to Frends. Also use for reviewing exported process.json files and Frends Templates, and for generating importable Process exports or Frends-style BPMN diagrams from a spec.
 ---
 
 # Ossi's Frends Recipes — Frends iPaaS
 
-Frends is a European hybrid iPaaS built on .NET 8 and Azure. Integrations are built as **Processes**: visual BPMN 2.0 flows in the Process Editor, enriched with C# expressions, compiled to C# and executed on **Agents**. This skill makes you an effective Frends integration architect: you can design, build, modify, review, and operate Processes, APIs, and other integration solutions.
+Frends integrations are **Processes**: BPMN 2.0 flows built in the **Process Editor**, enriched with C#, compiled to .NET and run on **Agents**. This skill is a snapshot of docs.frends.com as it described **Frends 6.3.x** (the only place the version is named). Anything version-sensitive: re-check live.
 
-## Rule 1: Live docs first
+**Evidence marks.** Unmarked lines are *Documented* (a live docs.frends.com page or public Frends repo; each reference file lists its pages). Other classes are marked: **[public output]** counted over public templates/exports; **[tenant observation]** an import result or a Tenant's own export — not reproducible without a Tenant; **[opinion]** a working heuristic the docs do not state.
 
-Frends evolves fast (a new minor version roughly every quarter). This skill is a snapshot, built from live documentation at the Frends 6.3 stage. **For anything version-sensitive — UI locations, shipped features, model names, task parameters — verify against the live docs before answering confidently.** If you have no way to fetch, still answer from this skill, and say which parts are from the snapshot and should be checked against docs.frends.com. The docs are unusually agent-friendly:
+## Reading the live docs
 
-- **Index of everything:** `https://docs.frends.com/llms.txt` — full page listing with one-line descriptions, including versioned snapshots (paths like `/frends-6.2.0/...`). Unversioned paths are always the **latest** version.
-- **Markdown mode:** append `.md` to any docs page URL to get clean Markdown (e.g. `https://docs.frends.com/reference/process-development/reference-values.md`).
-- **Ask API:** any docs page answers natural-language questions:
-  `GET https://docs.frends.com/<page>.md?ask=<question>&goal=<endgoal>` — documented on every page as returning a direct answer plus source excerpts. **Unreliable:** it has worked, and it has repeatedly returned the page unchanged instead. Treat it as a bonus, not a step to rely on. A 404 page is useful in its own right: it suggests the nearest real paths, and `https://docs.frends.com/sitemap.md` and `llms-full.txt` are the reliable ways to find a page.
-- **Platform API reference:** `https://docs.frends.com/reference/frends-platform-api/platform-api-reference/` — OpenAPI schemas for Processes, Process Templates, deployments and the rest. Worth reading even when not calling the API: the schemas name fields and enums (for example `ElementType`) that no prose page states.
-- **Task docs** now live at `https://docs.frends.com/tasks/` (see `references/tasks-catalog.md`). The older `https://tasks.frends.com` portal still works for search.
-- **Templates:** `https://templates.frends.com` and `https://github.com/FrendsPlatform/FrendsTemplates`.
-- **Task source code:** `https://github.com/FrendsPlatform/Frends.<TaskPackage>` (e.g. `Frends.HTTP`, `Frends.File`).
-- **Release notes:** `https://docs.frends.com/release-notes/` — check these before claiming a feature exists or doesn't.
+- `https://docs.frends.com/llms.txt` lists every page (unversioned = latest; `/docs/frends-6.x.0/…` and `/reference/frends-6.x.0/…` are snapshots — use them only to say when something changed). `sitemap.md` and `llms-full.txt` also list everything; a 404 page suggests the nearest real paths.
+- Append `.md` to any page URL for clean Markdown.
+- Every page advertises `GET <page>.md?ask=<question>&goal=<goal>`. **Tested at build time: it returned the page unchanged.** Do not rely on it.
+- Platform API reference: `/reference/frends-platform-api/platform-api-reference/` — its `models.md` publishes schemas no prose page states (the `ElementType` enum, Process fields, deployment bodies).
+- Tasks: `/tasks/tasks/<system>/<method>.md`; source `github.com/FrendsPlatform/Frends.<Package>`. Release notes: `/release-notes/`.
 
-## Core vocabulary
+## Vocabulary (use these exact terms)
 
-Use these terms exactly; Frends terminology differs from other platforms.
+**Process** (integration flow) · **Subprocess** (reusable flow; Manual Trigger only; called from Processes) · **Long-running Process** (stateful; pauses and resumes) · **Shape** (any canvas element) · **Sequence Flow** (the arrow) · **Task** (one operation) · **Code Task** (multi-line C# inside the Process) · **Assign Variable** (one C# expression) · **Custom Task** (C# library compiled outside Frends, imported as NuGet) · **Trigger** · **Process Instance** (one execution) · **Promoted Value** · **Tenant → Environment → Agent Group → Agent** · **Gateway Agent** (API gateway; runs no Processes) · **Control Panel** (main UI) vs **Frends Portal** (tenant/plan management).
 
-**Process** — the integration flow (a BPMN sequence of Tasks). **Subprocess** — reusable flow, inserted into Processes as a Task-like shape; only Manual Trigger; called from Processes. **Long-Running Process** — stateful orchestration that can dehydrate (Checkpoint) and resume later (Scheduled/Signal Resume), available since Frends 6.2. **Shape** — any element on the canvas. **Task** — a single operation; what other platforms call a "connector". A **Sequence Flow** is the connecting arrow (NOT a connector). **Custom Task** — user-written C# class library imported as NuGet. **Code Task** — multi-line C# written inside the Process Editor (different from Custom Task!). **Assign Variable** — single C# expression shape. **Trigger** — starting condition; a Process can have several. **Process Instance** — one execution. **Promoted Value** — value surfaced into the Process Instance list for search/filter/monitoring.
-
-Execution environment: **Tenant** (yourtenant.frendsapp.com) → **Environments** (Dev/Test/Prod, each with its own Environment Variable values) → **Agent Groups** (set of Agents running the same Processes) → **Agents** (the .NET runtime, cloud PaaS or self-hosted/on-prem; Docker/Kubernetes supported). **Gateway Agent** — API-gateway Agent that load-balances API requests to executing Agents without running Processes itself. **HA configuration** — multiple Agents in one Agent Group sharing load (requires load balancer + shared database).
-
-UI: **Frends Portal** (tenant management) vs **Control Panel** (the main UI: Process Editor, Process List, Process Instance List, Dashboard, Administration).
+Map users' words without comment: connector / node → **Task** (the glossary says a Task is comparable to another platform's connector; a connector is *not* the Sequence Flow); workflow / flow → **Process**; code block / code shape → **Code Task**; expression shape → **Assign Variable**; API proxy → **Passthrough API**; designer / Process Designer → **Process Editor**; test run / execute manually → **Run Once** (Process list action); Intelligent AI Connector → **AI Connector** (the shape's reference page title; the docs use both names); call a Subprocess → **Call Subprocess** shape; pause / resume → **Checkpoint**, **Scheduled Resume**, **Signal Resume**.
 
 ## Shapes and Triggers
 
-**Event shapes:** Trigger, Return, Intermediate Return (respond and continue async), Throw, Catch.
-**Decision shapes:** Exclusive Decision (if/else; expression must be C# boolean; True → "Yes" branch, anything else → default branch), Inclusive Decision (every True branch runs; optional default).
-**Activity shapes:** Task, Call Subprocess, Assign Variable, Code Task, Shared State Task (temporary key-value storage shared between executions), DMN Task (decision tables; note: reference values there are written WITHOUT the `#`, e.g. `var.X`, `env.G.X`), AI Connector.
-**Scope shapes:** Scope, Foreach, While. Return inside a scope sets the scope's `#result` (Foreach collects an array of iteration results; While keeps only the last).
-**Long-Running Process shapes (6.2+):** Checkpoint (persist state and dehydrate), Scheduled Resume (wait until a time without consuming resources), Signal Resume (another Process resumes this one).
-**Artifact shapes (documentation only, no runtime effect):** Data Object/Store Reference, Group, Text Annotation.
+Events: Trigger, Return, Intermediate Return, Throw, Catch. Decisions: Exclusive Decision (C# boolean), Inclusive Decision. Activities: Task, Call Subprocess, Assign Variable, Code Task, Shared State Task, DMN Task, AI Connector. Scopes: Scope, Foreach, While. Long-running: Checkpoint, Scheduled Resume, Signal Resume. Artifacts (no runtime effect): Data Object Reference, Data Store Reference, Group, Text Annotation.
+The Platform API `ElementType` enum (export `Type` values): `Start, Task, Decision, SequenceFlow, ConditionBranch, Return, Throw, CallActivity, SubProcess, ParallelForeach, SequentialForeach, While, Expression, SubProcessStartNode, Catch, InclusiveGateway, InclusiveDecisionBranch, IntermediateReturn, GlobalErrorHandler, TestTask, SharedState, Dmn, DataObjectReference, DataStoreReference, NativeAi`. It has no Checkpoint/Resume member although those shapes are documented — the enum page and the shape pages disagree; don't guess the export type of a Long-running shape.
 
-**Triggers:** Manual, Schedule, File, Conditional (poll with custom criteria, e.g. SFTP folder), HTTP (lightweight endpoint), API (binds a Process to an API Management endpoint), AMQP, Service Bus, RabbitMQ, Azure Event Hub, TCP, **MCP Trigger** (exposes a Process as an MCP Tool for agentic AI).
+Triggers (Trigger reference): Manual, File, Schedule, Conditional, HTTP, API, AMQP, Service Bus, RabbitMQ, Azure Event Hub, TCP, MCP. Many Triggers per Process, all wired to the same first shape; branch on `#trigger.name` / `#trigger.type`. The `#trigger.type` value table lists the first eleven and gives no value for MCP Trigger.
 
-## Reference values (`#` references)
+## Reference values
 
-Dynamic data is accessed with hashtag references in expressions:
+- `#var.X` — Process Variables (initialised after the Triggers, **not usable inside Trigger parameters**) and runtime variables from Assign Variable / Code Task. `#var.Obj["F"]` always; `#var.Obj.F` for JObject/JToken/anonymous/dynamic without special characters. `#var.error` holds exception details in error handling.
+- `#env.Group.Name` — per-Environment values; types Text, Number, Boolean, List, Secret. `#env.Group["Name"]` works but hides the usage from the Environment Variable view.
+- `#trigger` — data of the Trigger that fired. `#process` — `agent`, `agentGroup`, `environment`, `executionid`, `id`, `name`, `uri`, `version`, `cancellationToken`, `Logger` (ILogger to the Agent log, follows the log level).
+- `#result` / `#result[Shape Name]` — for a scope, the **scope's** name. Foreach collects an array; While keeps the last.
+- **`#result` limits.** (1) A named `#result[X]` is unusable if X ran in a conditional branch or another scope — assign it into a pre-initialised Process Variable. (2) A shape that **failed** has no result, so `#result` of that Task or Scope must not be used in the error path that follows it: the Catch path, and the Exclusive Decision the Catch path merges into. A decision that inspects a **completed** Task's result — e.g. `#result[HTTP Request].StatusCode` with "Throw exception on error response" off — is not an error path; it is the normal pattern.
+- **DMN Task:** no `#` inside the table — `var.age`, `env.CRM.BaseUrl`.
 
-- `#var.Name` — Variables. Created either as **Process Variables** (defined in Process settings, initialized at start, usable right after Triggers but NOT inside Trigger parameters) or at runtime via Assign Variable / Code Task with "assign variable" enabled. Object fields: `#var.Obj["Field"]` always works; dot notation `#var.Obj.Field` works for JObject/JToken/dynamic/anonymous. Can be explicitly typed (string, JObject, List) or dynamic.
-- `#var.error` — always available inside error-handling paths (Catch); holds message, type, stack trace.
-- `#env.Group.Name` — Environment Variables: centrally managed, per-Environment values. Types: Text, Number, Boolean, List, Secret (encrypted, hidden in UI). Dynamic access `#env.Group["Name"]` works but breaks usage tracking in the Environment Variables view — avoid it.
-- `#trigger` — data from the trigger that fired. With multiple triggers, branch on `#trigger.name` / `#trigger.type`. Structure depends on trigger type (see each trigger's reference page).
-- `#result` — output of the previous shape; `#result[Shape Name]` for a specific shape. For scopes the name is the **Scope's** name, not the inner Return's. HTTP Request example: `#result[HTTP Request].Body`.
-- `#process` — instance metadata (execution id etc.).
+## Handlebars and Trigger fields
 
-**Critical `#result` limitations (common review findings):**
-1. A named `#result[X]` can only be used if X is guaranteed to have executed — NOT if X ran inside a conditional branch or inside another scope. Workaround: initialize a Process Variable before the branch/scope and assign the result into it inside.
-2. A shape that **failed** has no `#result`. So it must NOT be used in the error-handling path that follows that Task or Scope — inside the Catch path, or in the Exclusive Decision that the Catch path merges into. It is safe again only after the flow is known to have succeeded; capture what you need into a variable beforehand. This is about Catch paths: a decision that inspects a *completed* Task's result (e.g. an HTTP status code, with "Throw exception on error response" off) is not an error path, and is the normal pattern in the public templates.
+`{{ expr }}` in any text field: compiled at save, evaluated at runtime. **Trigger parameters are plain text**: neither Handlebars nor C# is evaluated, with one exception — bare `#env.Group.Name` references are substituted (separate them from following text with a space). Manual Trigger parameters evaluate nothing. Escaping inserted values is your job — [opinion] `JsonConvert.ToString(...)` for JSON, `SecurityElement.Escape(...)` for XML, parameterised SQL.
 
-## Handlebars
+## Runtime rules a builder trips over
 
-`{{ }}` embeds a C# expression inside any text-based field (Text, JSON, XML, SQL types). Compiled and validated at Process save; values resolved at runtime. Implicit `ToString()` — equivalent to `$"{expr.ToString()}"` — so it's the idiomatic way to drop a single value into a text field instead of switching the field to Expression type.
+- **Task retry**: Retry on failure, up to **10** retries, backoff `500 ms * 2^retry` (1 s … 512 s). It retries only when the Task **throws**; an HTTP 4xx/5xx response is a success unless "Throw exception on error response" is on.
+- **Catch**: one shape after Catch (use a Scope for more); the error path must rejoin right after the guarded shape. Scope+Catch outside a loop stops iteration; inside the loop body continues it — initialise error collectors before the loop.
+- **Subprocess to call on unhandled error**: runs after the Process has failed; cannot resume it; pass `#var.error` explicitly.
+- **Disable caller cancellation** (Process setting): without it, a cancelled HTTP request/Trigger stops the Process.
+- **Shared State**: Agent Group database; scope this Process or all Processes in the Agent Group; value ≤ 100,000 chars of JSON (on-prem: `MaxProcessSharedStateValueSize`), key ≤ 500 chars, TTL 1 minute – 30 days; operations AddOrUpdate, GetOrAdd, TryAdd, TryGetValue, TryRemove, TryUpdate, GetTTL, UpdateTTL — **no list or pattern match of keys**; the page contrasts it with a separate database or file storage for anything beyond single-key access (a Redis `GetKeys` Task also exists in the Task docs). Sharing across HA Agents needs a shared database (SQL Server recommended over SQLite).
+- **Foreach**: the Foreach page describes sequential iteration only; the `ElementType` enum has both `ParallelForeach` and `SequentialForeach`, and no prose page read for this build explains the parallel option.
+- **DMN Task** (since Frends 6.0): FEEL ranges `[18..65)` — square bracket includes, round excludes; output read as `#result[DMN Name].OutputName`. The DMN guide itself says: many discrete cases → DMN; simple binary → Exclusive Decision; calculations or multi-step logic → Code Task.
 
-- **Escaping is your job.** Raw insertion breaks structured formats. JSON: `{{JsonConvert.ToString(#var.X)}}` (emits its own quotes — omit them in the template). XML: `{{System.Security.SecurityElement.Escape(#var.X)}}`. SQL: prefer the Task's parameterized queries over string building.
-- **Triggers don't evaluate Handlebars or C#.** Trigger parameter fields are plain text, with ONE exception: bare `#env.Group.Name` references (no braces) are substituted, e.g. File Trigger filter `FilePrefix_#env.Grp.FileName.csv`. Manual Trigger parameters evaluate nothing at all.
-- Decision shape conditions are locked to C# boolean expressions; no Handlebars there.
+## Configuration scope and concurrency
 
-## C# in Frends
+- **Environment Variable**: one value per Environment. Deploying a Process requires every Environment Variable it uses to have a value in the target.
+- **Process Variable**: value supplied per deployment and stored per **Process + Agent Group** (`POST /api/v1/process-deployments/{processGuid}/agentGroup/{agentGroupId}/variableUpdate`; `GET …/{agentGroupId}/variables`). Runtime context: `#process.agentGroup`, `#process.environment`.
+- **Overlap limits**: Schedule Trigger "Run only one scheduled instance at a time" (manual runs and other Triggers ignore it; scope across Agents not stated); Conditional Trigger "Run only one conditional Process at a time" (the condition Subprocess itself never overlaps); Service Bus "Max concurrent messages" — **per Agent**; RabbitMQ "Max concurrent messages" (scope not stated). No such setting is documented on File, HTTP or AMQP Triggers. Which scope a design needs is judgment.
 
-.NET 8 / C# 12 in current versions (.NET Framework 4.7.1 and .NET Standard 2.0 supported for legacy). Everything flows as Newtonsoft JSON (`JObject`/`JArray`/`JToken`) — that library and `System`, `System.Linq`, `System.Collections.Generic`, `System.Xml.Linq`, `Newtonsoft.Json(.Linq)` etc. are available without namespace prefixes. Anything else in mscorlib needs the fully qualified name, e.g. `System.Text.Encoding.UTF8.GetString(bytes)`.
+## C#
 
-- **Code Task cannot import libraries.** No `using` directives for namespaces (only `using` for resource disposal), no external NuGets. Need a library → that's what Custom Tasks are for.
-- Code Task with "assign variable" ON must `return` a value; OFF must not return (acts as void). One action per shape; keep expressions one-liner-ish, precompute before embedding in Handlebars.
-- Each imported Task exposes its parameter classes, e.g. build `Frends.HTTP.Request.Definitions.Header[]` in a Code Task to feed dynamic headers into an HTTP Request Task. Tooltips/docs/GitHub source show the expected types.
+Processes compile to C#; the 6.3.0 release notes say Processes target **.NET 10** (the Process reference page still calls .NET 8 the default — out of date). .NET Framework 4.7.1 and .NET Standard 2.0 remain for legacy and migration; **Legacy Agents are discontinued in Frends 6.4**. On-prem cross-platform Agents need .NET Runtime 10.0.7+ from 6.3.1 (6.3 Breaking Changes). Newtonsoft `JObject/JArray/JToken` everywhere. Code Task: no `using` imports, no NuGets — libraries mean a Custom Task. Details: `references/platform-internals.md`.
 
-## Error handling essentials
+## Building and reviewing — checklist
 
-- **Task retry:** Advanced settings → Retry on failure, max 10 retries, exponential backoff `500 ms * 2^retry` (1 s, 2 s, 4 s … 512 s). HTTP Request also needs "Throw exception on error response" enabled if 4xx/5xx should trigger retries (a received response is otherwise a success).
-- **Standard try/catch pattern:** Scope around the risky part → Catch attached to the Scope → one handler shape (usually another Scope) → error path must merge back immediately after the guarded shape, with no shapes in between.
-- **Loops:** Scope+Catch OUTSIDE the loop = stop iteration on error; Scope+Catch INSIDE the loop body = handle and continue. Initialize error-collection variables before the loop or they won't survive it.
-- **Subprocess to call on unhandled error** (Process settings): last-chance cleanup/reporting hook when the instance fails; cannot resume the Process. Common use: auto-create a support ticket. Rate-limit repeated alerts with Shared State Tasks.
-- **Monitoring Rules** (Administration): fleet-level error detection over Promoted Values — e.g. alert if fewer than N instances with `OrderId` per hour, or if any `PROC-…-ERROR` value appears. Handles "the Process never ran" failures that per-instance handling can't. Per-Environment, with active-time windows; can email or trigger a Process.
-- Finish failure paths with **Throw** (not Return) so instances show as failed for monitoring.
-
-## Building and reviewing Processes — checklist
-
-When creating or reviewing a Process, check:
-
-1. **Trigger** — the right type for the job, and its parameter rules respected (no Handlebars, no C#).
-2. **Configuration** — `#env` for anything environment-specific; never a hardcoded URL or credential; Secret type for secrets.
-3. **`#result`** — both limitations above: only where the named shape is guaranteed to have run, and never in an error path.
-4. **Error handling** — Scope + Catch per the patterns above; every failure path ends in Throw, not Return.
-5. **Logging** — skip-logging on shapes touching secrets or PII; Promoted Values for business identifiers; "errors only" level in production.
-6. **Retries** — on network-facing Tasks, with "Throw exception on error response" where 4xx/5xx must count as a failure.
-7. **Code Tasks** — one action each, no giant code blobs.
-8. **Reuse** — Subprocesses for anything used in more than one place.
+1. Trigger type fits; Trigger fields hold no Handlebars/C#.
+2. `#env` for Environment-specific values; Secret type for credentials; no hardcoded URLs or secrets.
+3. `#result` limits both respected.
+4. Scope + Catch where failure is expected; failure paths end in **Throw** so instances show as failed.
+5. Skip logging on shapes touching secrets/PII; Promoted Values for identifiers, not payloads; Only errors in production.
+6. Retry on network Tasks, with "Throw exception on error response" where a 4xx/5xx must fail.
+7. No Remote Subprocesses in high-volume solutions (Best Practices Collection).
+8. Deploy an API together with its linked Processes.
 
 **Do not hand-write or hand-edit BPMN XML.** LLMs are unreliable with it, and Frends exports carry the functionality in `ElementParameters`, outside the BPMN. Reason at the level of shapes, parameters, variables and triggers. When a whole Process or diagram has to be *produced*, write a spec and let `scripts/frendsgen` emit the BPMN and the parameters together (see `references/process-generation.md`).
 
 ## Where to go deeper
 
-Read the matching reference file before answering in these areas:
-
 | Topic | File |
 |---|---|
-| Writing Custom Tasks in C# (.NET 8 template, attributes, packaging, legacy template) | `references/custom-tasks.md` |
-| Built-in API Management AND the separate API Portal add-on | `references/api-management.md` |
+| Custom Tasks in C# (template, attributes, packaging, legacy template) | `references/custom-tasks.md` |
+| API Management, API Policies, and the separate API Portal add-on | `references/api-management.md` |
 | Business Automation Portal (BAP) add-on | `references/bap.md` |
-| AI Connector, agentic AI, MCP in Frends | `references/ai-connector.md` |
-| Monitoring, Process Instances, log levels, operating a running platform | `references/monitoring-operations.md` |
-| Architecture: technologies, HA, scalability, security, lifecycle/CI-CD | `references/platform-internals.md` |
-| Finding existing Tasks, their docs and source code | `references/tasks-catalog.md` |
-| Templates, ProcessExport JSON vs Template JSON, conversions | `references/templates-and-exports.md` |
+| AI Connector, agentic mode, MCP Trigger | `references/ai-connector.md` |
+| Process Instances, log levels and retention, Monitoring Rules, Dashboard, operating | `references/monitoring-operations.md` |
+| Agents, config files, Synchronize agents, deployment models, host requirements and connectivity, encryption, certificates, updating and breaking changes, HA | `references/platform-internals.md` |
+| Finding Tasks, their docs and source | `references/tasks-catalog.md` |
+| Templates, ProcessExport vs Template JSON, conversions | `references/templates-and-exports.md` |
 | Generating a Process export or a Frends-style BPMN diagram from a spec; drawing a picture of any export; the undocumented export/BPMN format facts | `references/process-generation.md` + `scripts/` |
 
-**No unsourced claims.** This skill carries only what was verified against live documentation or observed directly — in public Frends output, or in imports into a Tenant, and labelled as which. For anything it does not cover — compliance certifications, retention limits, sizing, runtime internals — fetch the live docs or say you don't know. Do not fill the gap from memory.
+**Optional companions.** `github.com/Frends-Product-Management/frends-claude-plugin` is Frends' Claude Code plugin for working on a Tenant through the Frends MCP server (find, diagnose, build and review drafts, run). `FrendsTaskSkills` in `github.com/FrendsPlatform/FrendsTasks` is an Agent Skill (`frends-task-creator`) for writing Custom Tasks from the official template. This skill works fully without either.
+
+**No unsourced claims.** This skill carries only what live pages state or what was observed and labelled as such. For what it does not cover — compliance certifications, platform-level retention beyond what the log settings state, sizing, runtime internals — fetch the live docs or say you don't know. Do not fill the gap from memory.
+
+**Local notes.** If `references/local-notes.md` exists, whoever installed this skill added it, and no build has verified it. Read its header before using any line of it, prefer a live source, and say when an answer rests on it. Public installs do not have this file; its absence is normal.
