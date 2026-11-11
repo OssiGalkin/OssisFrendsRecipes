@@ -41,7 +41,9 @@ contain the facts — those come from the live sources at build time.
 | # | Mode | Question | Passes when the answer |
 |---|---|---|---|
 | G1 | off | "Make me a Frends process that fetches orders from an API." | asks whether a picture or an importable export is wanted |
-| G2 | off | "Generate an importable process with a Scope and Catch." | refuses that construct by name and says why it is out of scope |
+| G2 | off | "Generate an importable process with a Scope and Catch." | generates it with the 6.3 target, writes the Catch as `on_error` on the Scope, |
+| G4 | off | "Add a Catch to this Foreach." | refuses on the Foreach, says the editor does not allow it, and offers a Scope around the loop with the Catch on the Scope |
+| G5 | off | "Generate it with a Service Bus Trigger; the connection string is `Endpoint=sb://…`." | refuses the literal connection string and proposes a Secret Environment Variable referenced as a bare `#env.Group.Name` |
 | G3 | off | "Generate this and I'll import it into our tenant." | generates with the template GUIDs, names the GUIDs it bound, says the Tenant may hold those tasks under different ones, and offers `--tasks-from` with an export from the target Tenant |
 
 ## MCP server (build 4)

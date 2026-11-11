@@ -1,7 +1,7 @@
 # AI Connector & Agentic AI
 
 Built for Frends 6.3.x from: `/reference/shapes/activity-shapes/ai-connector`, `/reference/triggers/mcp-trigger.md`, `/frends-development/agentic-ai.md`, `/frends-development/agentic-ai/model-context-protocol.md`, `/release-notes/frends-6.3/version-6.3.0.md` and `/release-notes/frends-6.3/new-features.md` (search excerpts), `/reference/frends-platform-api/platform-api-reference/models.md` (`NativeAi` element type), `/reference/architecture/agent-application-settings.md` (`NativeAiSettings`), `/get-started/frends-glossary.md`.
-The Frends MCP **server** that AI assistants connect to is not covered here — that is `mcp.md` (build 4). This file covers the platform features: the AI Connector shape and the MCP Trigger.
+The Frends MCP **server** that AI assistants connect to is not covered here; it belongs to `references/mcp.md` where that file is present (it is written by a separate build, not yet run for this snapshot). This file covers the platform features: the AI Connector shape and the MCP Trigger.
 
 ## Names
 
@@ -16,7 +16,7 @@ An activity shape — AI as a step inside a Process, which keeps control of when
 - **Shipped in 6.3.0** (release notes): the AI Connector can be configured to use **MCP Tools** — tools published by Frends Agents and by external MCP servers; reasoning steps became opt-in; the Process Editor supports **MCP Triggers**; improved visualisation of Long-running Process state.
 - The AI Connector "becomes agentic when Tools are configured on it": with at least one Tool source it fetches the tool list and enters a reasoning loop instead of producing one response (Model Context Protocol page).
 - MCP works both ways: Processes exposed as tools (MCP Trigger), and the AI Connector consuming tools from Frends and external sources.
-- The 6.1-era AI Connector page described API calls inside the AI step and Computer Use as **future roadmap**. Treat any roadmap name (including "AI Toolbox", "AI Cortex") as unshipped unless the current release notes say otherwise; name the version your answer reflects.
+- The 6.1-era AI Connector page described API calls inside the AI step and Computer Use as **future roadmap**. Treat any roadmap name (such as "AI Toolbox") as unshipped unless the current release notes say otherwise; name the version your answer reflects.
 
 ## MCP Trigger
 
@@ -42,7 +42,7 @@ An activity shape — AI as a step inside a Process, which keeps control of when
 
 ## Result shape
 
-`#result.Response` (string; with the Frends system prompt it's serialized JSON containing a `Response`-like answer field — field name can vary by prompt, e.g. `Category` — and `Reasoning` string array when enabled). `#result.ToolCalls` (JArray of `{ToolName, CallId, Arguments, Result, Error}`). `#result.Metadata` (token counts, Frends Credit usage). Parse with `JObject.Parse(#result[AI Connector].Response)` before branching.
+An AI Connector's tool list names MCP-Trigger Processes as `Frends::<tool name>` (stored as `{"mode": "list", "value": "[\"Frends::<tool name>\"]"}`). Within the same Agent Group no Private Application or API Policy is needed; the tool Process must be deployed and active. Outside the Agent Group, or from an external MCP client, a token with an `mcp_tools` claim is required. `#result.Response` (the docs say string, but with the Frends system prompt it can be a JSON object, so `(string)#result[X].Response` fails; read it as `(JToken)#result[X].Response`. With the Frends system prompt it's JSON containing a `Response`-like answer field — field name can vary by prompt, e.g. `Category` — and `Reasoning` string array when enabled). `#result.ToolCalls` (JArray of `{ToolName, CallId, Arguments, Result, Error}`). `#result.Metadata` (token counts, Frends Credit usage). Cast with `(JToken)#result[AI Connector].Response` and read fields from it; `JObject.Parse` of a string applies only where Response really is a string.
 
 ## Recipes in the guides
 

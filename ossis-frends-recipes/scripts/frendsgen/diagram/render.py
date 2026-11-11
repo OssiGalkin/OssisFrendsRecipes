@@ -61,7 +61,11 @@ def parse(path):
         return etree.fromstring(fh.read().encode('utf-8'))
 
 
+FILLS = {}
+
+
 def collect(root):
+    FILLS.clear()
     kinds, names, loops, evdefs = {}, {}, {}, {}
     flows, flow_names = {}, {}
     annos, cats, assocs = {}, {}, {}
@@ -100,6 +104,9 @@ def collect(root):
         b = sh.find('{%s}Bounds' % DC)
         if b is None:
             continue
+        fill = sh.get('{http://bpmn.io/schema/bpmn/biocolor/1.0}fill')
+        if fill:
+            FILLS[sh.get('bpmnElement')] = fill
         shapes[sh.get('bpmnElement')] = {
             'x': float(b.get('x')), 'y': float(b.get('y')),
             'w': float(b.get('width')), 'h': float(b.get('height'))}
@@ -115,6 +122,7 @@ def render(path):
     root = parse(path)
     (kinds, names, loops, evdefs, flows, flow_names, shapes, edges,
      annos, cats, assocs) = collect(root)
+    fills = dict(FILLS)
     if not shapes:
         raise ValueError('no BPMNShape elements: nothing to draw')
 
@@ -156,7 +164,7 @@ def render(path):
         if k in CONTAINERS:
             o.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="8" '
                      'fill="%s" stroke="%s" stroke-width="1.6"/>'
-                     % (x, y, w, h, CONTAINER_FILL, STROKE))
+                     % (x, y, w, h, fills.get(eid, CONTAINER_FILL), STROKE))
             o.append('<text x="%.1f" y="%.1f" font-size="12" font-weight="600" '
                      'fill="%s">%s</text>' % (x + 10, y + 18, TEXT, esc(label)))
             if eid in loops:
@@ -165,18 +173,36 @@ def render(path):
                          'text-anchor="middle">%s</text>'
                          % (cx, y + h - 6, STROKE, mk))
         elif k in EVENTS:
+            ev = evdefs.get(eid, '')
             sw = 3.0 if k == 'endEvent' else 1.6
             dash = ' stroke-dasharray="4 2"' if k == 'boundaryEvent' else ''
             o.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="%s" stroke="%s" '
-                     'stroke-width="%.1f"%s/>' % (cx, cy, w / 2, FILL, STROKE, sw, dash))
-            if k == 'intermediateThrowEvent':
+                     'stroke-width="%.1f"%s/>' % (cx, cy, w / 2, fills.get(eid, FILL),
+                                                  STROKE, sw, dash))
+            if k in ('intermediateThrowEvent', 'intermediateCatchEvent',
+                     'boundaryEvent'):
                 o.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="none" '
                          'stroke="%s" stroke-width="1.2"/>' % (cx, cy, w / 2 - 3, STROKE))
-                o.append('<path d="M%.1f,%.1f l4,-5 l-1,4 l4,0 l-6,7 l1,-5 l-4,0 z" '
-                         'fill="%s"/>' % (cx - 4, cy + 2, STROKE))
-            elif k in ('intermediateCatchEvent', 'boundaryEvent'):
-                o.append('<circle cx="%.1f" cy="%.1f" r="%.1f" fill="none" '
-                         'stroke="%s" stroke-width="1.2"/>' % (cx, cy, w / 2 - 3, STROKE))
+            # Frends draws by event definition: signal = triangle (filled when
+            # thrown: Throw, Intermediate Return; hollow when caught: Catch),
+            # message = envelope (Checkpoint, Signal Resume), timer = clock
+            # (Scheduled Resume).
+            if ev == 'signalEventDefinition':
+                filled = k in ('intermediateThrowEvent', 'endEvent')
+                o.append('<path d="M%.1f,%.1f l7,12 l-14,0 z" fill="%s" stroke="%s" '
+                         'stroke-width="1.3"/>' % (cx, cy - 7, STROKE if filled else 'none',
+                                                   STROKE))
+            elif ev == 'messageEventDefinition':
+                o.append('<rect x="%.1f" y="%.1f" width="16" height="11" fill="none" '
+                         'stroke="%s" stroke-width="1.3"/><path d="M%.1f,%.1f l8,6 l8,-6" '
+                         'fill="none" stroke="%s" stroke-width="1.3"/>'
+                         % (cx - 8, cy - 5.5, STROKE, cx - 8, cy - 5.5, STROKE))
+            elif ev == 'timerEventDefinition':
+                o.append('<circle cx="%.1f" cy="%.1f" r="9" fill="none" stroke="%s" '
+                         'stroke-width="1.3"/><path d="M%.1f,%.1f v-6 M%.1f,%.1f h5" '
+                         'stroke="%s" stroke-width="1.3"/>'
+                         % (cx, cy, STROKE, cx, cy, cx, cy, STROKE))
+            elif ev:
                 o.append('<path d="M%.1f,%.1f l3,6 l4,-9 l3,7" fill="none" '
                          'stroke="%s" stroke-width="1.4"/>' % (cx - 6, cy - 1, STROKE))
             for i, line in enumerate(wrap(label, 22)):
@@ -251,7 +277,7 @@ def render(path):
             small = w < 60
             o.append('<rect x="%.1f" y="%.1f" width="%.1f" height="%.1f" rx="%.1f" '
                      'fill="%s" stroke="%s" stroke-width="1.6"/>'
-                     % (x, y, w, h, 6 if not small else 4, FILL, STROKE))
+                     % (x, y, w, h, 6 if not small else 4, fills.get(eid, FILL), STROKE))
             if k == 'scriptTask':
                 o.append('<path d="M%.1f,%.1f h8 M%.1f,%.1f h8 M%.1f,%.1f h5" '
                          'stroke="%s" stroke-width="1.2" fill="none"/>'

@@ -18,6 +18,17 @@ differently. Do not rebuild for the prompt's sake.
 
 ## 0. Inputs
 
+- **Required when it exists: the previous version of this generator**
+  (`scripts/frendsgen/`, `scripts/examples/`, `scripts/README.md`). It produced
+  Processes that imported and ran on a real Tenant, and the comments that quote
+  Frends errors record why its refusals exist. Start from it, not from a blank
+  page. Keep its behaviour unless you have a strong reason to believe it is
+  wrong: corpus or reference-export evidence that contradicts it, a failed
+  import or run, or a live docs page that states otherwise. A cleaner design, a
+  different reading of the docs, or "I would have done it differently" is not
+  such a reason. When you do change a behaviour, say in `scripts/README.md`
+  what the old version did and what evidence overturned it. Keep every refusal
+  it makes unless the same standard of evidence shows the refusal is wrong.
 - **Required:** a zip of real exports. Public data means the `FrendsTemplates`
   repo. Treat it as a sample, not the specification (below).
 - **Required:** this skill's `SKILL.md` and `references/`, for platform
@@ -30,10 +41,21 @@ differently. Do not rebuild for the prompt's sake.
   package does not honour the interface described in `2-diagram.md` step 7, fix
   it there, not by working around it here.
 - **Optional, and the single highest-value input if it ever exists:** one or
-  more ProcessExports from the *target* tenant. One such file settled more
-  format questions in one read than four rounds of import bisection. When it
+  more ProcessExports from the *target* tenant. One such file answers more
+  format questions in one read than rounds of import bisection. When it
   arrives, run the corpus survey on it first, before anything else. **Use it;
   never ship it.** See "Nothing tenant-specific is stored".
+- **Required since 6.3: the shape reference export**
+  (`scripts/tests/fixtures/shapes-6.3.json`). One ProcessExport made in
+  the Frends 6.3.2 Process Editor that places one of every shape and eleven
+  Triggers, scrubbed of tenant identifiers (one placeholder per original
+  GUID). The fixtures README describes in words what it does not place: Catch
+  on a Call Subprocess, the unhandled-error Subprocess, the Scheduled Resume
+  loop and the Service Bus Trigger. Together they are the answer key
+  for every construct beyond the public corpus: rebuild each shape's
+  `ElementParameters` entry from them by Id, as the corpus is the answer key
+  for HTTP Request. When the Frends version moves, ask for a new set built the
+  same way and re-run the fixture tests before anything else.
 - **If a Frends MCP connector is available**, use it for three things: fetch
   real exports into the corpus, list installed tasks and their GUIDs, and import
   generated files directly. That last one replaces the human-mediated,
@@ -51,14 +73,11 @@ differently. Do not rebuild for the prompt's sake.
 
 The public templates cover **14 of the 25 documented shapes**. Absent entirely:
 Catch, Call Subprocess, DMN Task, AI Connector, the Long-running suspend/resume
-shapes (use the names `SKILL.md` records from the current docs), and every
-artifact type. The templates also carry hundreds of
-artifact elements (annotations, groups, associations) that any spec-driven
-regeneration discards, so generated diagrams are visibly barer than hand-built
-ones even where the runtime behaviour matches.
-
-Catch is the consequential gap. Error handling appears in nearly every real
-integration and there is no public example of its serialised form.
+shapes, and every artifact type. The 6.3.2 shape reference export and its README (inputs)
+fill every one of those gaps, but only as single instances: they fix the
+serialised form, not the range of values a real Process puts in it. The
+templates also carry hundreds of artifact elements (annotations, groups,
+associations) that a spec-driven importable export discards.
 
 Worse than missing coverage: **the public templates actively mislead on the
 Process import path.** They are all Template exports. Fields that are null in
@@ -126,20 +145,33 @@ mode; Exclusive Decision with an else-branch that either terminates or merges
 back to the step after the decision; Foreach; While; Return; Throw; Process
 Variables.
 
+### In scope with the 6.3.2 shape reference export (`target: "6.3"`)
+
+Every documented shape and all twelve Triggers: Scope; Catch (as an attribute
+of the Task, Scope or Call Subprocess it guards, with one handler shape that
+rejoins at the guarded shape's successor); Intermediate Return; Call
+Subprocess and the unhandled-error Subprocess (bound by name from the target
+Tenant's `LinkedSubProcess`, the way task GUIDs are bound); Inclusive
+Decision; Shared State `AddOrUpdate`; DMN Task (built from a table, or carried
+verbatim); AI Connector (parameters passed through from a lifted export);
+Checkpoint; Signal Resume; the Checkpoint -> decision -> Scheduled Resume loop
+as one bounded construct; multiple Triggers; Manual Trigger parameters.
+
+These are rebuilt field for field from the reference export and its README.
+
 ### Out of scope, and why
 
 | Excluded | Reason |
 |---|---|
-| Every other Task | No parameter schema without corpus instances. The mechanism generalises; the schemas do not. |
-| Subprocesses | `LinkedSubProcess`, GUID resolution and the target-tenant precondition are all unexercised. |
-| Every trigger but Manual | Schedule, HTTP/API, File and others each have their own config schema and evaluation rules. API triggers additionally bind to an API Management endpoint that must exist. |
-| Environment variables (`#env`) | The templates are `#var`-only for portability, so `RequiredEnvironmentVariables` is always empty and the closure rule is never exercised. |
-| **Scope + Catch** | No `boundaryEvent` and no plain Scope anywhere in the corpus. The most important gap: without it the tool cannot express the error handling most real integrations need. |
-| Code Task in expression mode (`useStatementMode: false`) | No instance in the corpus and none in the one tenant export seen. Emit it if asked, label it unverified. |
-| Inclusive Decision, Shared State, DMN, AI Connector, Long-running suspend/resume shapes | Documented, absent from the corpus. |
-| Artifacts — annotations, groups, associations, data objects and stores | No runtime behaviour, but their absence makes generated diagrams look sparse next to hand-built ones. |
-| Promoted result values | Half-present in the shape record; `PromotedResultVariablesJson` never exercised. |
-| Arbitrary flow graphs | The IR is a tree of sequences. Multiple predecessors, merges to anywhere other than the decision's successor, and multiple start events are all unsupported. |
+| Every Task but HTTP Request | No parameter schema without many real instances. The mechanism generalises; the schemas do not. HTTP Request is the one in the public templates. |
+| Shared State operations other than `AddOrUpdate` | Only `AddOrUpdate` appears in the reference export. |
+| Environment variables (`#env`) closure | The templates are `#var`-only, so `RequiredEnvironmentVariables` is never exercised. Bare `#env` references in Trigger credential fields are allowed; the closure list is not computed. |
+| Code Task in expression mode (`useStatementMode: false`) | No instance in the corpus or the reference export. Emit it if asked. |
+| Artifacts in an importable file | No runtime behaviour. The diagram side draws them. |
+| Promoted result values | `PromotedResultVariablesJson` is never exercised. |
+| Arbitrary flow graphs | The IR is a tree of sequences plus two fixed attachments (Catch, Intermediate Return) and one fixed cycle (the Checkpoint / Scheduled Resume loop). Merges anywhere other than the step after a decision are unsupported. |
+| A Catch on a Foreach or While, or a Catch handler of more than one shape | A Foreach or While cannot have a Catch. The docs allow exactly one shape after a Catch, so a decision or `wait_until` cannot be the handler (use a Scope). |
+| Catch and Intermediate Return on the same shape | The Task reference allows one flow out "with optionally an Intermediate Return or Catch" in addition. |
 
 When the spec asks for something the IR cannot express, **refuse and name the
 element**. Never approximate. The diagram side may draw what this side refuses;
@@ -195,10 +227,7 @@ rather than the corpus it is marked, because that is the stronger evidence.
   schema, different id. The generator binds to the GUID found in the public
   templates by default, prints every GUID it bound, and warns that the target
   Tenant may hold the task under a different one; `--tasks-from <export>`
-  rebinds to the target's GUIDs. Whether Frends can resolve a task by package
-  name instead of GUID is untested — a one-task file on each binding would
-  settle it.
-- Import acceptance is not execution. Nothing generated has been *run*.
+  rebinds to the target's GUIDs.
 
 **A misreading to avoid.** The docs say a shape's `#result` must not be used in
 the error-handling path that follows it. That is about **Catch** paths — the
@@ -325,15 +354,13 @@ Into the skill, and nowhere else:
 - `scripts/examples/` — a worked spec exercising every supported construct, and
   the largest public process that fits the IR, produced by `lift --spec`.
 - `scripts/README.md` — usage; architecture; scope; what each test proves with
-  its current numbers; the import evidence, which path it came from, and
-  whether it predates the current layout or emitter; explicitly which constructs
-  have never been verified against a real import or a real run.
+  its current numbers.
 - **`references/process-generation.md`** — this build owns it. It is what an
   agent using the skill reads, so it carries: which entry point to use when; the
   scope of each side; **both spec formats, documented** (an agent must be able
   to write a spec without reading `spec.py`); the workflow including
-  `--tasks-from` and the look-at-it step; import-testing discipline; and the
-  format facts, each marked **[corpus]** or **[import]**.
+  `--tasks-from` and the look-at-it step; import discipline; and the
+  format facts, with **[corpus]** on counts over the public templates.
 - The section "The two import paths validate differently" and the
   task-GUID paragraph in **`references/templates-and-exports.md`**.
   The rest of that file belongs to the skill build; add, do not rewrite.

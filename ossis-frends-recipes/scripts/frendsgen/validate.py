@@ -12,7 +12,8 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 from typing import Any, Dict, List, Optional
 
-from .shapes import TYPE_TAG, EP_KEYS, ARTIFACT_TYPES
+from .shapes import (TYPE_TAGS, TYPES_63, EP_KEYS, ELEMENTLESS, CONTAINER_TYPES as
+                     _CONTAINERS, CONTAINER_LOOP)
 from .ir import VALID_MODES
 
 ERROR, WARN = "ERROR", "WARN"
@@ -23,16 +24,27 @@ NO_PARAMS_TAGS = {
     "BPMNEdge", "BPMNLabel", "Bounds", "waypoint", "textAnnotation", "text",
     "association", "dataObject", "dataInputAssociation", "dataOutputAssociation",
     "property", "sourceRef", "targetRef", "incoming", "outgoing",
-    "signalEventDefinition", "standardLoopCharacteristics",
+    "signalEventDefinition", "messageEventDefinition", "timerEventDefinition",
+    "standardLoopCharacteristics",
     "multiInstanceLoopCharacteristics", "extensionElements", "documentation",
     "boundaryEvent", "errorEventDefinition",
     # artifacts with no ElementParameters entry
     "group", "category", "categoryValue", "categoryValueRef",
 }
 FIXED_SIZE = {0: (36, 36), 1: (100, 80), 2: (50, 50), 5: (36, 36), 6: (36, 36),
-              13: (36, 36), 15: (50, 50), 20: (100, 80)}
-CONTAINER_TYPES = {10: "multiInstanceLoopCharacteristics",
-                   11: "standardLoopCharacteristics"}
+              7: (100, 80), 13: (36, 36), 14: (36, 36), 15: (50, 50), 17: (36, 36),
+              20: (100, 80), 21: (100, 80), 24: (36, 36), 25: (36, 36), 26: (36, 36),
+              27: (199, 131)}
+# Type -> loop element it must carry; a Scope (8) carries none.
+CONTAINER_TYPES = {t: (CONTAINER_LOOP[t][0] if t in CONTAINER_LOOP else None)
+                   for t in _CONTAINERS}
+# Event Types whose event definition is fixed.
+EVENT_DEF = {t: v[1] for t, v in TYPES_63.items() if v[1]}
+# Where a Catch may hang: Task, Call Subprocess, Scope; never a Foreach.
+CATCH_SOURCES = {1, 7, 8}
+# Intermediate Return sources the docs list: Task, Call Subprocess, Assign
+# Variable / Code Task.
+RESPOND_EARLY_SOURCES = {1, 7, 12}
 
 
 def _local(tag: str) -> str:
@@ -107,8 +119,10 @@ def validate_process(proc: Dict[str, Any]) -> List[Finding]:
         if eid in elems:
             continue
         # Type 19 / FrendsTestElementId is the editor's "test this shape"
-        # scratch entry. 33 corpus files carry one; it has no diagram element.
-        if e["Type"] == 19 and eid == "FrendsTestElementId":
+        # scratch entry (33 corpus files). Type 18 / globalErrorHandler is the
+        # "Subprocess to call on unhandled error" setting (6.3.2). Neither has
+        # a diagram element.
+        if ELEMENTLESS.get(e["Type"]) == eid:
             continue
         add(ERROR, "V002", "ElementParameters entry has no BPMN element", eid)
     for eid, el in elems.items():
@@ -124,9 +138,14 @@ def validate_process(proc: Dict[str, Any]) -> List[Finding]:
             add(ERROR, "V003", f"BPMN <{tag}> has no ElementParameters entry", eid)
             continue
         t = by_id[eid]["Type"]
-        if TYPE_TAG.get(t) != tag:
+        if tag not in TYPE_TAGS.get(t, set()):
             add(ERROR, "V004",
-                f"Type {t} maps to <{TYPE_TAG.get(t)}> but element is <{tag}>", eid)
+                f"Type {t} is drawn as {sorted(TYPE_TAGS.get(t, set())) or 'nothing'}"
+                f" but element is <{tag}>", eid)
+        elif t in EVENT_DEF:
+            defs = [_local(c.tag) for c in el if _local(c.tag).endswith("EventDefinition")]
+            if defs != [EVENT_DEF[t]]:
+                add(ERROR, "V020", f"Type {t} needs <{EVENT_DEF[t]}>, has {defs}", eid)
 
     # --- flows -------------------------------------------------------------
     flows = {i: e for i, e in elems.items() if _local(e.tag) == "sequenceFlow"}
@@ -153,7 +172,7 @@ def validate_process(proc: Dict[str, Any]) -> List[Finding]:
 
     # --- gateways ----------------------------------------------------------
     for eid, el in elems.items():
-        if _local(el.tag) != "exclusiveGateway":
+        if _local(el.tag) not in ("exclusiveGateway", "inclusiveGateway"):
             continue
         outs = outgoing.get(eid, [])
         dflt = el.get("default")
@@ -181,16 +200,20 @@ def validate_process(proc: Dict[str, Any]) -> List[Finding]:
         t = by_id.get(eid, {}).get("Type")
         want = CONTAINER_TYPES.get(t)
         have = [_local(c.tag) for c in el if "LoopCharacteristics" in _local(c.tag)]
-        if want and have != [want]:
-            add(ERROR, "V008", f"Type {t} container should carry <{want}>, has {have}", eid)
+        if t in CONTAINER_TYPES and have != ([want] if want else []):
+            add(ERROR, "V008", f"Type {t} container should carry "
+                               f"{[want] if want else 'no loop element'}, has {have}", eid)
         starts = [c.get("id") for c in el if _local(c.tag) == "startEvent"]
         if len(starts) != 1:
             add(ERROR, "V008", f"container has {len(starts)} inner startEvent(s), "
                                f"expected 1", eid)
         elif by_id.get(starts[0], {}).get("Type") != 13:
             add(ERROR, "V008", "inner startEvent is not Type 13", starts[0])
-        if not [c for c in el if _local(c.tag) == "endEvent"]:
-            add(ERROR, "V008", "container has no endEvent (Return)", eid)
+        # docs: a Scope's execution ends in a Return or a Throw. A Foreach
+        # whose body only throws is valid (6.3.2 reference export).
+        if not [c for c in el if _local(c.tag) in ("endEvent",
+                                                     "intermediateThrowEvent")]:
+            add(ERROR, "V008", "container has no Return or Throw", eid)
 
     # --- retry marker ------------------------------------------------------
     for eid, el in elems.items():
@@ -287,7 +310,7 @@ def validate_process(proc: Dict[str, Any]) -> List[Finding]:
         e = by_id.get(eid)
         if not e:
             continue
-        if e["Type"] in (5, 6):
+        if e["Type"] in (5, 6, 14, 17):
             if e["Name"] is not None:
                 add(WARN, "V015", f"Type {e['Type']} carries an "
                                   f"ElementParameters Name; the corpus keeps event "
@@ -297,9 +320,65 @@ def validate_process(proc: Dict[str, Any]) -> List[Finding]:
                 add(WARN, "V015", f"BPMN name {el.get('name')!r} != "
                                   f"ElementParameters Name {e['Name']!r}", eid)
 
+    # --- catch and intermediate return wiring ---------------------------
+    for eid, el in elems.items():
+        t = by_id.get(eid, {}).get("Type")
+        if t not in (14, 17):
+            continue
+        ins = incoming.get(eid, [])
+        if len(ins) != 1:
+            add(ERROR, "V021", f"Type {t} needs exactly one incoming flow, has {len(ins)}",
+                eid)
+            continue
+        src = flows[ins[0]].get("sourceRef")
+        st = by_id.get(src, {}).get("Type")
+        if t == 17:
+            if st not in RESPOND_EARLY_SOURCES:
+                add(WARN, "V022", f"Intermediate Return follows Type {st}; the docs "
+                                  f"allow only Task, Call Subprocess, Assign Variable "
+                                  f"or Code Task", eid)
+            continue
+        if st == 10:
+            add(ERROR, "V021", "Catch on a Foreach is not allowed; guard a "
+                               "Scope around the loop instead", eid)
+        elif st not in CATCH_SOURCES:
+            add(WARN, "V021", f"Catch on Type {st}; a Catch guards a Task, Scope "
+                              f"and Call Subprocess", eid)
+        outs = outgoing.get(eid, [])
+        if len(outs) != 1:
+            add(ERROR, "V021", f"Catch needs exactly one outgoing flow (one handler "
+                               f"shape), has {len(outs)}", eid)
+            continue
+        handler = flows[outs[0]].get("targetRef")
+        rejoin = {flows[f].get("targetRef") for f in outgoing.get(src, [])} - {eid}
+        rejoin = {r for r in rejoin if by_id.get(r, {}).get("Type") != 17}
+        h_out = {flows[f].get("targetRef") for f in outgoing.get(handler, [])}
+        if not h_out:
+            # Frends 6.3.2 import: "Catch shape ... must rejoin the flow at the
+            # same node its protected shape ... reaches on success."
+            add(ERROR, "V021", f"Catch handler {handler} ends the Process; it must "
+                               f"rejoin at {sorted(rejoin)}", eid)
+        elif not h_out <= rejoin:
+            add(ERROR, "V021", f"Catch handler {handler} must rejoin right after "
+                               f"{src} (at {sorted(rejoin)}), not at {sorted(h_out)}", eid)
+
+    # --- subprocess references ---------------------------------------------
+    try:
+        used_sub = json.loads(proc.get("UsedSubprocessesJson") or "{}")
+    except Exception:
+        used_sub = {}
+        add(ERROR, "V023", "UsedSubprocessesJson is not JSON")
+    for e in eps:
+        if e["Type"] in (7, 18) and e.get("SelectedTypeId") not in used_sub:
+            add(ERROR, "V023", f"Subprocess {e.get('SelectedTypeId')} is not listed in "
+                               f"UsedSubprocessesJson", e["Id"])
+
     # --- named #result references -----------------------------------------
+    data_ref = {eid for eid, el in elems.items()
+                if _local(el.tag) in ("dataObjectReference", "dataStoreReference")}
     names = {e["Name"] for e in eps
-             if e.get("Name") and e["Type"] not in {4, 16} | ARTIFACT_TYPES}
+             if e.get("Name") and e["Type"] not in {4, 16, 18}
+             and e["Id"] not in data_ref}
     for e in eps:
         blob = json.dumps(e.get("Parameters") or {}, ensure_ascii=False)
         for ref in set(re.findall(r"#result\[([^\]]+)\]", blob)):
@@ -321,6 +400,14 @@ def validate_process(proc: Dict[str, Any]) -> List[Finding]:
             add(ERROR, "V017", f"trigger id {tr.get('id')!r} is not a shape")
         elif by_id[tr["id"]]["Type"] != 0:
             add(ERROR, "V017", f"trigger id {tr['id']!r} is not a Type 0 shape")
+        else:
+            e = by_id[tr["id"]]
+            if e.get("SelectedTypeId") != tr.get("$type"):
+                add(ERROR, "V017", f"trigger $type {tr.get('$type')} != "
+                                   f"SelectedTypeId {e.get('SelectedTypeId')}", tr["id"])
+            if (e.get("Parameters") or {}) != (tr.get("config") or {}):
+                add(ERROR, "V017", "trigger config differs from the shape's "
+                                   "ElementParameters.Parameters", tr["id"])
     starts = [e for e in eps if e["Type"] == 0]
     if not starts:
         add(ERROR, "V017", "no Type 0 trigger shape")

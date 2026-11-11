@@ -5,7 +5,7 @@ Built for Frends 6.3.x from: `https://docs.frends.com/llms.txt` (## Tasks sectio
 ## Where Task documentation lives
 
 1. **`https://docs.frends.com/tasks/`** — one page per system and one per method: `/tasks/tasks/<system>/<method>.md`, e.g. `/tasks/tasks/http/request.md`, `/tasks/tasks/sftp/uploadfiles.md`, `/tasks/tasks/microsoft-sql-server/executequery.md`. llms.txt lists every system and method under "## Tasks".
-2. **`https://tasks.frends.com`** — the Task Portal; the 6.2 Connectors page names it as where you request a new official Task. No page read for this build says it is deprecated; treat docs.frends.com/tasks as the documentation and the portal as the request/search front.
+2. **`https://tasks.frends.com`** — the Task Portal. Get Task information from docs.frends.com/tasks, not from the portal.
 3. **Source**: `https://github.com/FrendsPlatform/Frends.<Package>` (e.g. `Frends.File`). The Task page states all official Tasks are open source; the source is the ground truth for parameter classes and behaviour. `CommunityHiQ` repos are legacy community Tasks.
 
 ## Choosing

@@ -1,0 +1,101 @@
+# Every construct the generator supports with `target: "6.3"`.
+# Bindings below are placeholders: replace the Subprocess entry by running
+#   generate ... --subprocesses-from <export from the target Tenant that calls it>
+name: All shapes 6.3
+description: Reference spec exercising every 6.3 construct
+modifier: frendsgen@example.com
+target: "6.3"
+preserve_references_at_checkpoint: true
+
+triggers:
+  - type: manual
+    parameters:
+      - {name: OrderId, default: "42"}
+      - {name: ApiToken, default: "", secret: true}
+  - type: service_bus
+    config: {queueName: orders, connectionString: "#env.Bus.ConnectionString"}
+  - type: schedule
+    config: {recurring: true, repeatDelay: 15}
+
+subprocesses:
+  - name: Notify
+    guid: 00000000-0000-4000-8000-000000000201
+    parameters: [input]
+
+on_unhandled_error:
+  subprocess: Notify
+  params: {input: "Shapes failed"}
+
+variables:
+  - {name: FetchError, value: '""', description: Set by the Catch on Get order}
+
+steps:
+  - assign: {variable: total, expression: {csharp: "0"}}
+    respond_early: {csharp: "\"accepted\""}
+
+  - task:
+      type: http_request
+      params: {method: GET, url: {csharp: "\"https://example.org/orders/\" + #trigger.data.OrderId"}}
+    name: Get order
+    retry: 3
+    on_error:
+      do:
+        code:
+          statement_mode: true
+          expression: {csharp: "{ #var.FetchError = #var.error.Message; }"}
+        name: Remember fetch error
+
+  # A Catch handler must rejoin; fail the run after the rejoin instead
+  - decision:
+      name: Fetched?
+      condition: {csharp: "string.IsNullOrEmpty(#var.FetchError)"}
+      else:
+        - throw: {message: "Order fetch failed: {{#var.FetchError}}"}
+
+  - scope:
+      name: Book order
+      do:
+        - call:
+            subprocess: Notify
+            params: {input: {csharp: "#var.total.ToString()"}}
+        - return: {csharp: "#result"}
+    on_error:
+      variable: error
+      do:
+        assign: {variable: total, expression: {csharp: "-1"}}
+
+  - inclusive:
+      name: Routes
+      branches:
+        - {name: Big, condition: {csharp: "#var.total > 100"},
+           do: [{assign: {variable: big, expression: {csharp: "true"}}}]}
+        - {name: Small, condition: {csharp: "#var.total <= 100"},
+           do: [{assign: {variable: big, expression: {csharp: "false"}}}]}
+      default: {name: Default}
+
+  - dmn:
+      inputs: [{expression: var.total, type: integer, name: Total}]
+      output: Category
+      rules:
+        - {when: ["<5"], then: '"Low"'}
+        - {when: ["[5..100)"], then: '"Mid"'}
+        - {when: [">=100"], then: '"High"'}
+    name: Classify
+
+  - shared_state:
+      operation: AddOrUpdate
+      key: last-total
+      value: {csharp: "#var.total"}
+      ttl: 2
+    name: Remember total
+
+  - wait_until:
+      checkpoint: {name: Wait for approval, ttl_minutes: 1440}
+      condition: {csharp: "#var.total >= 0"}
+      every_minutes: 60
+      max_iterations: 24
+
+  - checkpoint: {name: Before signal}
+  - signal_resume: {}
+
+  - return: {csharp: "#result[Classify].Category"}

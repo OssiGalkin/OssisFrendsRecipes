@@ -7,7 +7,7 @@ four parts have different inputs, different cadences and different proof:
 |---|---|---|---|---|
 | 1 | `1-skill.md` | `SKILL.md`, `references/` | live docs.frends.com | every claim has a live source |
 | 2 | `2-diagram.md` | the diagram package, `scripts/docs/` | a zip of real exports | corpus round-trip, and looking at PNGs |
-| 3 | `3-export.md` | the export generator, `scripts/tests/`, `scripts/examples/`, `scripts/README.md`, `references/process-generation.md` | the same zip, parts 1 and 2, and a human with a tenant | three corpus loops, then a real import |
+| 3 | `3-export.md` | the export generator, `scripts/tests/`, `scripts/examples/`, `scripts/README.md`, `references/process-generation.md` | the same zip, parts 1 and 2, the previous version of the generator, and a human with a tenant | three corpus loops, then a real import |
 | 4 | `4-mcp.md` | `references/mcp.md`, the MCP router block in `SKILL.md` | public MCP documentation, and a Frends MCP connection to any tenant | the scenarios in `scenarios.md`, run with and without a connection |
 
 Run them **in that order, each in its own session**, handing each session the
@@ -55,7 +55,10 @@ These are decisions, not discoveries. A regeneration that changes them is wrong.
 - **Name:** `ossis-frends-recipes`. Deliberately not `frends`, so the skill
   installs beside any other Frends skill instead of replacing it.
 - **Description** (hand-authored; "Frends" alone must trigger it, the rest is
-  disambiguation):
+  disambiguation). Write it as a **double-quoted** YAML string: unquoted, the
+  ` #env` inside it starts a YAML comment and the description is cut off at
+  `(#var,`. A build checks this by parsing the frontmatter and comparing the
+  result with the text below, character for character:
 
   > Expert knowledge for the Frends iPaaS (Integration Platform as a Service). Use this skill whenever the user mentions Frends, asks how to build, modify, or review integrations, Processes, Subprocesses, APIs, Tasks, or Triggers in Frends, needs help with C# expressions, Handlebars, or reference values (#var, #env, #result, #trigger, #process), wants to create custom Tasks in C#/.NET, asks about API Management, API Portal, Business Automation Portal (BAP), the AI Connector or agentic AI in Frends, debugging or troubleshooting a failing Process or Process Instance, monitoring and operating running Processes, Process/Template exports and imports, platform architecture (Agents, Agent Groups, HA, scalability, security), working through Frends MCP, or migration from BizTalk or other iPaaS platforms to Frends. Also use for reviewing exported process.json files and Frends Templates, and for generating importable Process exports or Frends-style BPMN diagrams from a spec.
 
@@ -76,6 +79,44 @@ These are decisions, not discoveries. A regeneration that changes them is wrong.
   built file. No tenant exports, tenant GUIDs, tenant URLs, Process names,
   Environment Variable names, names or email addresses anywhere.
 
+## Facts from practice
+
+How Frends 6.3 behaves where the docs are silent. Build 1 carries them into
+`SKILL.md` in plain text; build 3 uses the reference export
+(`scripts/tests/fixtures/shapes-6.3.json`) itself as its answer key. Update
+this list when the Frends version moves.
+
+- Export `Type` values agree with the Platform API `ElementType` enum up to 23,
+  then go further: 24 Checkpoint, 25 Scheduled Resume, 26 Signal Resume,
+  27 AI Connector (the enum's `NativeAi`). Type 18 is the "Subprocess to call
+  on unhandled error" setting: an `ElementParameters` entry with no diagram
+  element.
+- There is no parallel Foreach; the enum's `ParallelForeach` is unused.
+- In an export the AMQP Trigger is `QueueTrigger`; the editor labels it "Queue".
+- A Catch works on a Call Subprocess (the Catch page names Task and Scope), not
+  on a Foreach. The shape after a Catch cannot be a Throw or Return; it must
+  rejoin where the guarded shape goes on success.
+- A statement-mode Code Task with "assign to variable" off returns nothing:
+  `return <value>;` is CS8030. `#var.X = …;` on a Process Variable works.
+- A Process Variable's value is parsed as JSON before the run: `new JArray()`
+  is not a valid value, and `[]` loads as a fixed-size `System.Array` with no
+  `.Add`. Build collections in an Assign Variable.
+- `#var` values are `dynamic`: cast to the static type before passing a lambda
+  (CS1977 otherwise).
+- Import keeps a new Process's `UniqueIdentifier`. When the GUID already
+  exists, choose to update the existing Process (new version); only that keeps
+  the GUID callers bind to.
+- A caller's `LinkedSubProcess` entry carries the Subprocess's
+  `ManualTriggerJson` verbatim, `nonStringifiedDefaultValue` included.
+- An API Trigger needs `openApiDocument`, `basePath` (the server URL) and
+  `routeTemplate` (base path plus one of its paths). Linking the Process to
+  the API happens in API Management (*Link Process*) or through the Frends MCP
+  server; the Process file cannot carry it.
+- A Conditional Trigger's condition Subprocess is listed in
+  `UsedSubprocessesJson` and `LinkedSubProcess`, like a call.
+- The AI Connector's `#result.Response` can be a JSON object, not a string:
+  read it as `JToken`.
+
 ## Evidence classes
 
 Every built claim carries one. Build 1 defines how they are marked; the others
@@ -86,12 +127,12 @@ use the same marks.
 | **Documented** | a live docs.frends.com page or a public Frends repo says it | anyone |
 | **Public output** | counted over the public templates or other public exports | anyone |
 | **Served by MCP** | returned by the Frends MCP server's own discovery calls and guides, at a named server or Frends version | anyone with a connection to any tenant |
-| **Tenant observation** | an import result, or a tenant's own export | only someone with a tenant |
+| **Practice** | how Frends behaves where the docs are silent (see "Facts from practice"); written unmarked | anyone with a Frends environment |
 | **Opinion** | a working heuristic from practice | nobody; say so |
 
-"Served by MCP" is not "Tenant observation": the guides and tool list are
-product content, the same in every tenant on that version. What a tenant
-*holds*, seen through the server, is tenant data and is never recorded.
+The MCP server's guides and tool list are product content, the same in every
+tenant on that version. What a tenant *holds*, seen through the server, is
+tenant data and is never recorded.
 
 ## Local notes (optional, never committed)
 

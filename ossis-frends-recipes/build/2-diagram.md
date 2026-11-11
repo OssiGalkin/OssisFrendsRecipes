@@ -18,6 +18,19 @@ Processes. A Frends Process needs a `process.json` with `ElementParameters`,
 phrasing is ambiguous — "make me a Frends process" usually means a picture, but
 check.
 
+
+> **Since 6.3: shape reference export.** `scripts/tests/fixtures/shapes-6.3.json`
+> places one of every shape; its README describes in words the few constructs it
+> does not place. Run `extract`, `generate`, `validate` and
+> `roundtrip` on it as on the corpus. What the corpus does not show:
+> Catch is an `intermediateCatchEvent` + `signalEventDefinition` reached by a
+> plain flow (not a `boundaryEvent`), Intermediate Return is an `endEvent` +
+> `signalEventDefinition` (Type 17, not the Throw element), `businessRuleTask`
+> is both Shared State (20) and DMN (21), Types 22/23 are the data references
+> and 24/25/26 the long-running shapes, and the AI Connector is drawn 199x131.
+> Key the Type table by (Type, element) pair so both numberings coexist. The
+> Checkpoint/Scheduled Resume loop is a cycle: ignore back edges when ranking.
+
 ## 0. Inputs
 
 Everything below works from public data. Take what is offered, ask for nothing
@@ -266,8 +279,8 @@ style preference; the third build prompt is written against it.
   as `python3 -m frendsgen.diagram.<tool>`. No `sys.path` tricks, no imports that
   only work from one working directory.
 - Layout and emission are two separate, importable functions. Layout takes the
-  spec — nodes `{id, shape, label, parent, attached_to?}`, flows
-  `{id, source, target, label}` — and returns **only geometry**, keyed by the ids
+  spec — nodes `{id, shape, label, parent, color?}`, flows
+  `{id, source, target, label}`, optional `artifacts` — and returns **only geometry**, keyed by the ids
   it was given: a box per node id, a waypoint list per flow id. It never
   allocates, rewrites or drops an id.
 - Layout needs nothing beyond the standard library, so that generating an export
@@ -308,10 +321,13 @@ name→(element, size, extra child) mapping in the generator, and the size and
 cardinality tables in the validator. Re-run the round-trip and confirm the corpus
 still passes.
 
-Catch is the gap most likely to matter — error handling appears in nearly every
-production integration, and the docs describe its behaviour without naming its
-BPMN element. Determine it from the corpus and add it. If your only Catch
-knowledge is doc-derived, label every Catch-bearing example as unverified.
+Every documented shape has its element in the Type table (see the note at
+the top). When a newer Frends version adds a
+shape, get a reference export that places it, run the extractor on it first,
+and add the shape from what the export shows; never from the docs' description
+of its behaviour alone. A Catch-shaped mistake (a doc-derived `boundaryEvent`
+where Frends writes an `intermediateCatchEvent` reached by a plain flow) is the
+reason for that rule.
 
 ## 11. Deliverables
 

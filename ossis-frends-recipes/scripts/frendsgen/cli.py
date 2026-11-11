@@ -4,7 +4,7 @@ import argparse
 import json
 import sys
 
-from .spec import load_file
+from .spec import load_file, subprocess_refs_from_export
 from .emit import process_export, template_export
 from .validate import validate_process, processes_in, ERROR
 from .corpustest import run_all, calibrate, rebuild_params, lift_and_regenerate
@@ -23,6 +23,17 @@ def _generate(args) -> int:
     if args.fresh:
         import uuid
         proc.name = f"{proc.name} {uuid.uuid4().hex[:6]}"
+    if args.target:
+        proc.target = args.target
+    if args.subprocesses_from:
+        src = json.load(open(args.subprocesses_from, encoding="utf-8-sig"))
+        found = subprocess_refs_from_export(src)
+        if not found:
+            print(f"{args.subprocesses_from}: it has no LinkedSubProcess entries and "
+                  f"no Subprocess of its own, so it cannot supply Subprocess GUIDs. "
+                  f"Export the Subprocess, or a Process that calls it.", file=sys.stderr)
+            return 2
+        proc.subprocesses.update(found)
     profile = DEFAULT_PROFILE
     if args.tasks_from:
         src = json.load(open(args.tasks_from, encoding="utf-8-sig"))
@@ -102,7 +113,21 @@ def _selftest(args) -> int:
 
 
 def _lift(args) -> int:
-    for proc in lift_file(args.file):
+    from .parse import Unliftable
+    doc = json.load(open(args.file, encoding="utf-8-sig"))
+    arts = sum(p.get("Bpmn", "").count(tag) for p in processes_in(doc)
+               for tag in ("<bpmn2:textAnnotation", "<bpmn2:group",
+                           "<bpmn2:dataObjectReference", "<bpmn2:dataStoreReference"))
+    if arts:
+        print(f"note: {arts} artifact(s) (annotations, groups, data references) "
+              f"have no runtime effect and are not carried into the spec",
+              file=sys.stderr)
+    try:
+        procs = lift_file(args.file)
+    except Unliftable as exc:
+        print(f"cannot lift: {exc}", file=sys.stderr)
+        return 2
+    for proc in procs:
         if args.spec:
             text = to_yaml(despec(proc))
             if args.out:
@@ -185,6 +210,14 @@ def main(argv=None) -> int:
                         "per-installation: without this the file binds to the "
                         "GUIDs of the public templates and will only import "
                         "where those exist.")
+    g.add_argument("--target", choices=["legacy", "6.3"], default=None,
+                   help="export form: legacy (5.7/6.0) or "
+                        "6.3 (needed for every shape beyond the original scope); "
+                        "overrides the spec's `target`")
+    g.add_argument("--subprocesses-from", metavar="EXPORT",
+                   help="bind Subprocesses by name from this export's "
+                        "LinkedSubProcess (an export from the target Tenant that "
+                        "calls them)")
     g.add_argument("--fresh", action="store_true",
                    help="for test imports: also give the Process a unique name "
                         "(the GUID is always new unless the spec pins it). A "

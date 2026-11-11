@@ -26,25 +26,38 @@ SHAPE = {
     'trigger':            ('startEvent',             (36, 36), None),
     'scope_trigger':      ('startEvent',             (36, 36), None),
     'return':             ('endEvent',               (36, 36), None),
-    # Throw and Intermediate Return are the same element and both are terminal.
     'throw':              ('intermediateThrowEvent', (36, 36), 'signalEventDefinition'),
-    'intermediate_return': ('intermediateThrowEvent', (36, 36), 'signalEventDefinition'),
+    # Frends 6.3.2 reference export: Intermediate Return is an endEvent with a
+    # signalEventDefinition (Type 17), not the Throw element.
+    'intermediate_return': ('endEvent',              (36, 36), 'signalEventDefinition'),
     'task':               ('task',                   (100, 80), None),
     'code_task':          ('scriptTask',             (100, 80), None),
     'assign_variable':    ('scriptTask',             (30, 30), None),
     'shared_state_task':  ('businessRuleTask',       (100, 80), None),
     'call_subprocess':    ('callActivity',           (100, 80), None),
     'dmn_task':           ('businessRuleTask',       (100, 80), None),
-    'ai_connector':       ('task',                   (100, 80), None),
+    # 6.3.2 draws the AI Connector larger than any other Task.
+    'ai_connector':       ('task',                   (199, 131), None),
     'decision':           ('exclusiveGateway',       (50, 50), None),
     'inclusive_decision': ('inclusiveGateway',       (50, 50), None),
     # Containers: size is computed from content, the tuple is a minimum.
     'scope':              ('subProcess',             (240, 160), None),
     'foreach':            ('subProcess',             (240, 160), 'multiInstanceLoopCharacteristics'),
     'while':              ('subProcess',             (240, 160), 'standardLoopCharacteristics'),
-    # Doc-derived, NOT corpus-confirmed: Catch attaches to a Task or Scope, so it
-    # must be a boundaryEvent. Its ElementParameters.Type is unknown.
-    'catch':              ('boundaryEvent',          (36, 36), 'errorEventDefinition'),
+    # 6.3.2: Catch is an intermediateCatchEvent reached by a plain sequence flow
+    # from the shape it guards. It is not a boundaryEvent.
+    'catch':              ('intermediateCatchEvent', (36, 36), 'signalEventDefinition'),
+    'checkpoint':         ('intermediateCatchEvent', (36, 36), 'messageEventDefinition'),
+    'signal_resume':      ('intermediateCatchEvent', (36, 36), 'messageEventDefinition'),
+    'scheduled_resume':   ('intermediateCatchEvent', (36, 36), 'timerEventDefinition'),
+}
+
+# Artifacts: no runtime behaviour, no sequence flows, placed after layout.
+ARTIFACT_SHAPE = {
+    'text_annotation':       ('textAnnotation',      (110, 45)),
+    'data_object_reference': ('dataObjectReference', (36, 50)),
+    'data_store_reference':  ('dataStoreReference',  (50, 50)),
+    'group':                 ('group',               (0, 0)),
 }
 CONTAINER_SHAPES = {'scope', 'foreach', 'while'}
 GATEWAY_SHAPES = {'decision', 'inclusive_decision'}
@@ -60,7 +73,8 @@ WRAP_CHARS = 22
 # Small-shape labels go above: below, they collide with a neighbouring event's
 # label. Events keep their labels below, matching the corpus.
 LABEL_BELOW = {'trigger', 'scope_trigger', 'return', 'throw',
-               'intermediate_return', 'catch'}
+               'intermediate_return', 'catch', 'checkpoint', 'signal_resume',
+               'scheduled_resume'}
 LABEL_ABOVE = {'decision', 'inclusive_decision', 'assign_variable'}
 PAD_X = 40        # container padding left/right
 PAD_TOP = 46      # container padding above content (room for the name)
@@ -149,50 +163,78 @@ def layout_level(node_ids, nodes, flows, sizes):
             succ[f['source']].append(f['target'])
             pred[f['target']].append(f['source'])
 
-    # boundary events (Catch) are not laid out on the grid; they are docked to
-    # the shape they are attached to, after that shape has a position.
-    attached = {n: nodes[n].get('attached_to') for n in node_ids
-                if nodes[n]['shape'] == 'catch'}
+    # Back edges (a Scheduled Resume looping back to its Checkpoint, or any
+    # other cycle) are ignored for ranking and rows, so a loop does not inflate
+    # every rank after it. They are still routed: the router sees the target to
+    # the left and takes the backward-flow route.
+    roots = [n for n in node_ids if not pred[n]] or list(node_ids[:1])
+    back, state = set(), {}
+
+    def dfs(n):
+        state[n] = 1
+        for s2 in succ[n]:
+            if state.get(s2) == 1:
+                back.add((n, s2))
+            elif s2 not in state:
+                dfs(s2)
+        state[n] = 2
+
+    for r in roots + list(node_ids):
+        if r not in state:
+            dfs(r)
+    for (u, v) in back:
+        succ[u] = [x for x in succ[u] if x != v]
+        pred[v] = [x for x in pred[v] if x != u]
+
+    # A Catch shares its guarded shape's column and takes the first free band
+    # below it, so host -> Catch is a straight vertical drop and Catch ->
+    # handler a straight hop. It is ranked with its host, and its successors
+    # one column later.
+    catch_host = {}
+    for n in node_ids:
+        if nodes[n]['shape'] != 'catch':
+            continue
+        host = nodes[n].get('attached_to') or (pred[n][0] if len(pred[n]) == 1
+                                                 else None)
+        if host is None:
+            raise GenError('catch %s needs exactly one incoming flow, from the '
+                           'Task, Scope or Call Subprocess it guards' % n)
+        catch_host[n] = host
+    attached = {}          # nothing is docked off-grid any more
 
     # Terminal events that dangle off a decision branch are not laid out on the
     # grid: Frends hangs them directly under the shape that branches to them.
     # Measured, not assumed -- 98.3% of Throw shapes in the corpus are entered
     # on their TOP edge, i.e. they sit below the row rather than in it. Leaving
     # them on the grid opens a whole band per Throw, and a tall container in
-    # band 0 then pushes those bands hundreds of pixels down.
+    # band 0 then pushes those bands hundreds of pixels down. An Intermediate
+    # Return hangs the same way under the activity that responds early.
     hanging = {}
     for n in node_ids:
-        if n in attached or nodes[n]['shape'] not in TERMINAL_SHAPES:
+        if nodes[n]['shape'] not in TERMINAL_SHAPES:
             continue
         if succ[n] or len(pred[n]) != 1:
             continue
         host = pred[n][0]
-        if nodes[host]['shape'] in GATEWAY_SHAPES:
+        if (nodes[host]['shape'] in GATEWAY_SHAPES
+                or nodes[n]['shape'] == 'intermediate_return'):
             hanging[n] = host
-    grid = [n for n in node_ids if n not in attached and n not in hanging]
+    grid = [n for n in node_ids if n not in hanging]
 
     # --- rank: longest path from a source ---
-    # A Catch is off-grid (docked to the shape it guards), so its successors
-    # would otherwise look like roots and rank 0 -- putting the error handler
-    # to the LEFT of the Scope it guards. Treat a flow leaving a Catch as
-    # leaving the shape the Catch is attached to.
-    def rank_source(n):
-        return attached.get(n) or n
-
     rank = {n: 0 for n in grid}
-    for _ in range(len(grid) + 1):
+    for _ in range(len(grid) + 2):
         changed = False
+        for c, host in catch_host.items():
+            if host in rank and rank[c] != rank[host]:
+                rank[c] = rank[host]
+                changed = True
         for n in grid:
             for s in succ[n]:
+                if s in catch_host:
+                    continue
                 if s in rank and rank[s] < rank[n] + 1:
                     rank[s] = rank[n] + 1
-                    changed = True
-        for c, host in attached.items():
-            if host not in rank:
-                continue
-            for s in succ.get(c, []):
-                if s in rank and rank[s] < rank[host] + 1:
-                    rank[s] = rank[host] + 1
                     changed = True
         if not changed:
             break
@@ -207,7 +249,8 @@ def layout_level(node_ids, nodes, flows, sizes):
         return 1 + sum(downstream(s, seen) for s in succ[n])
 
     dsz = {n: downstream(n) for n in grid}
-    order = sorted(grid, key=lambda n: (rank[n], -dsz[n], str(nodes[n]['id'])))
+    order = sorted(grid, key=lambda n: (rank[n], n in catch_host, -dsz[n],
+                                        str(nodes[n]['id'])))
 
     # --- rows: a node inherits its single predecessor's row; only extra
     #     branches open new rows. This is what keeps the main path straight;
@@ -224,10 +267,29 @@ def layout_level(node_ids, nodes, flows, sizes):
         lo, hi = min(a, b), max(a, b)
         return all((k, r) not in occupied for k in range(lo, hi + 1))
 
+    catches_of = {}
+    for c, host in catch_host.items():
+        catches_of.setdefault(host, []).append(c)
+
+    def place_catches(host):
+        # straight after the host, before anything else can take the band
+        # below it in this column
+        for c in sorted(catches_of.get(host, []), key=str):
+            if c in row:
+                continue
+            free = [r for r in sorted(set(row.values()))
+                    if r > row[host] and (rank[c], r) not in occupied]
+            row[c] = free[0] if free else max(row.values()) + 1
+            occupied.add((rank[c], row[c]))
+
     for n in order:
+        if n in row:
+            continue
         ps = [p for p in pred[n] if p in row]
         cand = None
-        for p in sorted(ps, key=lambda p: rank[p]):
+        # ties on rank go to the band nearest the top, so with several
+        # Triggers the main path stays in band 0 instead of under the last one
+        for p in sorted(ps, key=lambda p: (rank[p], row[p])):
             if p not in claimed and (rank[n], row[p]) not in occupied:
                 cand = p
                 break
@@ -241,13 +303,24 @@ def layout_level(node_ids, nodes, flows, sizes):
             claimed.add(cand)
         elif row:
             back = min([rank[p] for p in ps], default=rank[n])
-            # never reuse band 0: that is the main path's band
+            # never reuse band 0: that is the main path's band. An error
+            # handler (only predecessor a Catch) must sit BELOW the shape the
+            # Catch guards, because the Catch hangs under that shape.
+            floor = 0
+            hosts = [attached[p] for p in pred[n] if p in attached]
+            if hosts and len(hosts) == len(pred[n]):
+                floor = max(row.get(h, 0) for h in hosts)
+                back = min([rank.get(h, rank[n]) for h in hosts] + [back])
             reuse = [r for r in sorted(set(row.values()))
-                     if r != 0 and span_free(r, back, rank[n])]
+                     if r != 0 and r > floor - (0 if hosts else 1)
+                     and span_free(r, back, rank[n])]
+            if hosts:
+                reuse = [r for r in reuse if r > floor]
             row[n] = reuse[0] if reuse else max(row.values()) + 1
         else:
             row[n] = 0
         occupied.add((rank[n], row[n]))
+        place_catches(n)
 
     # --- columns: cumulative from the widest shape in each rank plus a fixed
     #     gap, so gaps stay constant across mixed widths.
@@ -323,16 +396,6 @@ def layout_level(node_ids, nodes, flows, sizes):
                 break
             y += 30
         pos[n] = {'x': x, 'y': y, 'w': w, 'h': h}
-
-    # dock Catch shapes on the bottom edge of the shape they guard
-    for n, host in attached.items():
-        w, h = sizes[n]
-        if host not in pos:
-            raise GenError('catch %s is attached to %s, which is not in the '
-                           'same nesting level' % (n, host))
-        hp = pos[host]
-        pos[n] = {'x': hp['x'] + hp['w'] * 0.75 - w / 2.0,
-                  'y': hp['y'] + hp['h'] - h / 2.0, 'w': w, 'h': h}
 
     ctx = {'col_x': col_x, 'col_w': col_w, 'rank': rank, 'row': row,
            'row_cy': row_cy, 'row_h': row_h, 'rows': rows}
@@ -483,6 +546,13 @@ def route_all(level_flows, pos, ctx, obstacles_for):
 def build_layout(spec):
     nodes = {n['id']: n for n in spec['nodes']}
     flows = spec['flows']
+    # Older specs named a Catch's guarded shape with attached_to and no flow.
+    # Frends wires it with an ordinary flow, so add the flow.
+    have_in = {f['target'] for f in flows}
+    for n in spec['nodes']:
+        if n['shape'] == 'catch' and n.get('attached_to') and n['id'] not in have_in:
+            flows.append({'id': n['id'] + '_in', 'source': n['attached_to'],
+                          'target': n['id'], 'label': ''})
 
     for f in flows:
         for end in ('source', 'target'):
@@ -602,6 +672,84 @@ def build_layout(spec):
 
 
 # --------------------------------------------------------------------------
+# artifacts: placed after the flow layout, never moving a flow node
+# --------------------------------------------------------------------------
+
+def place_artifacts(spec, nodes, pos):
+    """Positions for annotations, data references and groups.
+
+    Artifacts carry no runtime behaviour, so they never influence the layout of
+    the shapes that do. Annotations and data references sit above the shape
+    they describe (below is where Frends hangs Throws, Catches and Intermediate
+    Returns) and are pushed further up until clear. A group is drawn around its
+    members."""
+    arts = spec.get('artifacts') or []
+    apos, aedges = {}, {}
+    ids = set(nodes)
+    for a in arts:
+        if a.get('kind') not in ARTIFACT_SHAPE:
+            raise GenError('artifact %s: unknown kind %r; use one of %s'
+                           % (a.get('id'), a.get('kind'), sorted(ARTIFACT_SHAPE)))
+        if a['id'] in ids:
+            raise GenError('artifact id %s clashes with a node id' % a['id'])
+        ids.add(a['id'])
+
+    def clear(r):
+        # node rects grow downwards by a label allowance: event labels sit
+        # below the shape and are not in pos
+        others = [{'x': o['x'], 'y': o['y'], 'w': o['w'], 'h': o['h'] + 30}
+                  for o in pos.values()] + list(apos.values())
+        return not any(blocked((r['x'] - 6, r['y'] - 6),
+                               (r['x'] + r['w'] + 6, r['y'] + r['h'] + 6), [o])
+                       for o in others)
+
+    slot = {}
+    for a in arts:
+        kind = a['kind']
+        if kind == 'group':
+            continue
+        ref = a.get('annotates') or a.get('written_by')
+        if ref not in pos:
+            raise GenError('artifact %s refers to unknown shape %r'
+                           % (a['id'], ref))
+        t = pos[ref]
+        w, h = ARTIFACT_SHAPE[kind][1]
+        if kind == 'text_annotation':
+            w = max(w, min(220, 7 * max((len(x) for x in
+                                         (a.get('text') or '').split()), default=1) + 20))
+        k = slot.get(ref, 0)
+        slot[ref] = k + 1
+        x = t['x'] + t['w'] / 2.0 + 10 + k * (w + 20)
+        y = t['y'] - h - 40
+        r = {'x': x, 'y': y, 'w': w, 'h': h}
+        for _ in range(200):
+            if clear(r):
+                break
+            r['y'] -= 30
+        apos[a['id']] = r
+        sx = t['x'] + t['w'] / 2.0
+        if kind == 'text_annotation':
+            aedges[a['id'] + '_assoc'] = [(sx, t['y']), (r['x'], r['y'] + r['h'] / 2.0)]
+        else:
+            aedges[a['id'] + '_out'] = [(sx, t['y']),
+                                        (r['x'] + r['w'] / 2.0, r['y'] + r['h'])]
+    for a in arts:
+        if a['kind'] != 'group':
+            continue
+        mem = [m for m in a.get('members') or []]
+        missing = [m for m in mem if m not in pos]
+        if not mem or missing:
+            raise GenError('group %s needs members that are shapes; unknown: %s'
+                           % (a['id'], missing or '(none given)'))
+        x0 = min(pos[m]['x'] for m in mem) - 20
+        y0 = min(pos[m]['y'] for m in mem) - 30
+        x1 = max(pos[m]['x'] + pos[m]['w'] for m in mem) + 20
+        y1 = max(pos[m]['y'] + pos[m]['h'] for m in mem) + 30
+        apos[a['id']] = {'x': x0, 'y': y0, 'w': x1 - x0, 'h': y1 - y0}
+    return apos, aedges
+
+
+# --------------------------------------------------------------------------
 # XML emission
 # --------------------------------------------------------------------------
 
@@ -610,7 +758,13 @@ def xesc(s):
                     .replace('>', '&gt;').replace('"', '&quot;')
 
 
-def emit(spec, nodes, pos, routes):
+def emit(spec, nodes, pos, routes, apos=None, aedges=None):
+    apos, aedges = apos or {}, aedges or {}
+    arts = spec.get('artifacts') or []
+    writes = {}
+    for a in arts:
+        if a['kind'] in ('data_object_reference', 'data_store_reference'):
+            writes.setdefault(a['written_by'], []).append(a)
     children = {}
     for n in spec['nodes']:
         children.setdefault(n.get('parent'), []).append(n['id'])
@@ -627,7 +781,10 @@ def emit(spec, nodes, pos, routes):
          'xmlns:bpmn2="%s" '
          'xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" '
          'xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" '
-         'xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="sample-diagram" '
+         'xmlns:di="http://www.omg.org/spec/DD/20100524/DI" '
+         'xmlns:bioc="http://bpmn.io/schema/bpmn/biocolor/1.0" '
+         'xmlns:color="http://www.omg.org/spec/BPMN/non-normative/color/1.0" '
+         'id="sample-diagram" '
          'targetNamespace="http://bpmn.io/schema/bpmn" '
          'xsi:schemaLocation="http://www.omg.org/spec/BPMN/20100524/MODEL '
          'BPMN20.xsd">' % BPMN_NS]
@@ -652,6 +809,11 @@ def emit(spec, nodes, pos, routes):
         # loopCharacteristics BEFORE the flow elements: it belongs to the base
         # tActivity type while flowElement is added by tSubProcess, and in an
         # XSD extension the base sequence comes first.
+        # data associations sit after incoming/outgoing, as in the 6.3.2 export
+        for a in writes.get(nid, []):
+            o.append('%s  <bpmn2:dataOutputAssociation id="%s_out">'
+                     '<bpmn2:targetRef>%s</bpmn2:targetRef>'
+                     '</bpmn2:dataOutputAssociation>' % (pad, xesc(a['id']), xesc(a['id'])))
         if extra:
             o.append('%s  <bpmn2:%s id="%s_def"/>' % (pad, extra, xesc(nid)))
         if n['shape'] in CONTAINER_SHAPES:
@@ -673,7 +835,31 @@ def emit(spec, nodes, pos, routes):
         node_xml(nid, 4)
     for f in flow_parent.get(None, []):
         flow_xml(f, 4)
+    groups = [a for a in arts if a['kind'] == 'group']
+    for a in arts:
+        k = a['kind']
+        if k == 'text_annotation':
+            o.append('    <bpmn2:textAnnotation id="%s"><bpmn2:text>%s</bpmn2:text>'
+                     '</bpmn2:textAnnotation>' % (xesc(a['id']), xesc(a.get('text'))))
+            o.append('    <bpmn2:association id="%s_assoc" associationDirection="None" '
+                     'sourceRef="%s" targetRef="%s"/>'
+                     % (xesc(a['id']), xesc(a['annotates']), xesc(a['id'])))
+        elif k == 'data_object_reference':
+            o.append('    <bpmn2:dataObjectReference id="%s" name="%s" '
+                     'dataObjectRef="%s_obj"/>' % (xesc(a['id']), xesc(a.get('label')),
+                                                  xesc(a['id'])))
+            o.append('    <bpmn2:dataObject id="%s_obj"/>' % xesc(a['id']))
+        elif k == 'data_store_reference':
+            o.append('    <bpmn2:dataStoreReference id="%s" name="%s"/>'
+                     % (xesc(a['id']), xesc(a.get('label'))))
+        elif k == 'group':
+            o.append('    <bpmn2:group id="%s" categoryValueRef="%s_value"/>'
+                     % (xesc(a['id']), xesc(a['id'])))
     o.append('  </bpmn2:process>')
+    for a in groups:
+        o.append('  <bpmn2:category id="%s_category"><bpmn2:categoryValue '
+                 'id="%s_value" value="%s"/></bpmn2:category>'
+                 % (xesc(a['id']), xesc(a['id']), xesc(a.get('label'))))
 
     o.append('  <bpmndi:BPMNDiagram id="BPMNDiagram_1">')
     o.append('    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="%s">' % xesc(pid))
@@ -686,6 +872,10 @@ def emit(spec, nodes, pos, routes):
             extra = ' isMarkerVisible="true"'
         if n['shape'] in CONTAINER_SHAPES:
             extra += ' isExpanded="true"'
+        if n.get('color'):
+            # the two attributes the 6.3.2 editor writes for a filled shape
+            extra += (' bioc:fill="%s" color:background-color="%s"'
+                      % (xesc(n['color']), xesc(n['color'])))
         o.append('      <bpmndi:BPMNShape id="%s_di" bpmnElement="%s"%s>'
                  % (xesc(nid), xesc(nid), extra))
         o.append('        <dc:Bounds x="%.0f" y="%.0f" width="%.0f" height="%.0f"/>'
@@ -697,6 +887,19 @@ def emit(spec, nodes, pos, routes):
         for w in routes[f['id']]:
             o.append('        <di:waypoint x="%.0f" y="%.0f"/>' % (w[0], w[1]))
         o.append('      </bpmndi:BPMNEdge>')
+    for a in arts:
+        p = apos[a['id']]
+        o.append('      <bpmndi:BPMNShape id="%s_di" bpmnElement="%s">'
+                 % (xesc(a['id']), xesc(a['id'])))
+        o.append('        <dc:Bounds x="%.0f" y="%.0f" width="%.0f" height="%.0f"/>'
+                 % (p['x'], p['y'], p['w'], p['h']))
+        o.append('      </bpmndi:BPMNShape>')
+    for eid, wps in aedges.items():
+        o.append('      <bpmndi:BPMNEdge id="%s_di" bpmnElement="%s">'
+                 % (xesc(eid), xesc(eid)))
+        for w in wps:
+            o.append('        <di:waypoint x="%.0f" y="%.0f"/>' % (w[0], w[1]))
+        o.append('      </bpmndi:BPMNEdge>')
     o.append('    </bpmndi:BPMNPlane>')
     o.append('  </bpmndi:BPMNDiagram>')
     o.append('</bpmn2:definitions>')
@@ -705,7 +908,8 @@ def emit(spec, nodes, pos, routes):
 
 def generate(spec):
     nodes, pos, routes = build_layout(spec)
-    return emit(spec, nodes, pos, routes)
+    apos, aedges = place_artifacts(spec, nodes, pos)
+    return emit(spec, nodes, pos, routes, apos, aedges)
 
 
 def main(argv):

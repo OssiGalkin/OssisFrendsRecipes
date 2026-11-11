@@ -82,6 +82,16 @@ def load_element_parameters(proc):
     return ep if isinstance(ep, list) else []
 
 
+def di_colors(root):
+    """id -> fill colour, from the bioc:fill attribute the editor writes."""
+    out = {}
+    for sh in root.iter('{%s}BPMNShape' % NS['bpmndi']):
+        fill = sh.get('{http://bpmn.io/schema/bpmn/biocolor/1.0}fill')
+        if fill:
+            out[sh.get('bpmnElement')] = fill
+    return out
+
+
 def di_bounds(root):
     """id -> (x, y, w, h) from BPMNDI, used only to discriminate shapes that
     share an ElementParameters Type (Assign Variable vs Code Task)."""
@@ -105,7 +115,8 @@ def classify(elem_id, tag, ep_type, selected_type_id, bounds, unknowns, label):
     if ep_type is not None:
         key = (ep_type, tag)
         # Assign Variable and Code Task share Type 12; both are scriptTask.
-        # The only discriminator is DI width.
+        # DI width discriminates (30x30 vs 100x80) on all but three corpus
+        # shapes; the useStatementMode key is the exact test, used by `lift`.
         if ep_type == 12 and tag == 'scriptTask':
             w = bounds.get(elem_id, (0, 0, 0, 0))[2]
             return 'assign_variable' if w and w < 60 else 'code_task'
@@ -127,6 +138,10 @@ def classify(elem_id, tag, ep_type, selected_type_id, bounds, unknowns, label):
 def extract_spec(bpmn_xml, element_parameters, name):
     root = etree.fromstring(bpmn_xml.encode('utf-8'))
     bounds = di_bounds(root)
+    colors = di_colors(root)
+    catvals = {el.get('id'): el.get('value')
+               for el in root.iter('{%s}categoryValue' % NS['bpmn'])}
+    artifacts = []
 
     ep_by_id = {}
     for e in element_parameters:
@@ -146,6 +161,22 @@ def extract_spec(bpmn_xml, element_parameters, name):
             eid = el.get('id')
             if tag in DROPPED_TAGS:
                 dropped.append({'kind': tag, 'id': eid})
+                if tag == 'textAnnotation':
+                    tx = el.find('{%s}text' % NS['bpmn'])
+                    artifacts.append({'id': eid, 'kind': 'text_annotation',
+                                      'text': (tx.text if tx is not None else '') or ''})
+                elif tag == 'association':
+                    for a in artifacts:
+                        if a['id'] == el.get('targetRef'):
+                            a['annotates'] = el.get('sourceRef')
+                    pending_assoc.append((el.get('sourceRef'), el.get('targetRef')))
+                elif tag in ('dataObjectReference', 'dataStoreReference'):
+                    artifacts.append({'id': eid, 'kind': (
+                        'data_object_reference' if tag == 'dataObjectReference'
+                        else 'data_store_reference'), 'label': el.get('name') or ''})
+                elif tag == 'group':
+                    artifacts.append({'id': eid, 'kind': 'group', 'label':
+                                      catvals.get(el.get('categoryValueRef'), '')})
                 continue
             if tag == 'sequenceFlow':
                 ep = ep_by_id.get(eid)
@@ -171,6 +202,12 @@ def extract_spec(bpmn_xml, element_parameters, name):
             }
             if tag == 'boundaryEvent':
                 rec['attached_to'] = el.get('attachedToRef')
+            if eid in colors:
+                rec['color'] = colors[eid]
+            for da in el.findall('{%s}dataOutputAssociation' % NS['bpmn']):
+                tr = da.find('{%s}targetRef' % NS['bpmn'])
+                if tr is not None:
+                    writes[tr.text] = eid
             if el.find('{%s}multiInstanceLoopCharacteristics' % NS['bpmn']) is not None:
                 rec['loop'] = 'multiInstance'
             elif el.find('{%s}standardLoopCharacteristics' % NS['bpmn']) is not None:
@@ -179,7 +216,29 @@ def extract_spec(bpmn_xml, element_parameters, name):
             if tag in ('subProcess', 'transaction', 'adHocSubProcess'):
                 visit(el, eid)
 
+    pending_assoc, writes = [], {}
     visit(proc_el, None)
+
+    by_id = {a['id']: a for a in artifacts}
+    for src, tgt in pending_assoc:        # an association may precede its note
+        if tgt in by_id:
+            by_id[tgt]['annotates'] = src
+    for tgt, src in writes.items():
+        if tgt in by_id:
+            by_id[tgt]['written_by'] = src
+    # group membership is geometric: the top-level shapes inside its bounds
+    for a in artifacts:
+        if a['kind'] != 'group' or a['id'] not in bounds:
+            continue
+        gx, gy, gw, gh = bounds[a['id']]
+        a['members'] = [n['id'] for n in nodes if n['parent'] is None
+                        and n['id'] in bounds
+                        and bounds[n['id']][0] >= gx and bounds[n['id']][1] >= gy
+                        and bounds[n['id']][0] + bounds[n['id']][2] <= gx + gw
+                        and bounds[n['id']][1] + bounds[n['id']][3] <= gy + gh]
+    # keep only artifacts the generator can place again
+    artifacts = [a for a in artifacts
+                 if a.get('annotates') or a.get('written_by') or a.get('members')]
 
     return {
         'name': name,
@@ -188,6 +247,7 @@ def extract_spec(bpmn_xml, element_parameters, name):
         'nodes': nodes,
         'flows': flows,
         'dropped_artifacts': dropped,
+        'artifacts': artifacts,
     }, unknowns
 
 

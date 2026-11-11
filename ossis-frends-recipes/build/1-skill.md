@@ -50,6 +50,15 @@ conventions — belongs to build 4, which writes what the skill knows about it. 
 connection. You may use a connection to *check* a platform fact, but the claim
 you write must still be sourced from docs or public output; if it can only be
 sourced from the server, report it for build 4 instead of writing it.
+Never point a reader at `references/mcp.md` unless that file exists in the
+skill folder you were handed: it only appears once build 4 has run.
+
+**Facts from practice.** `build/README.md` lists, under "Facts from
+practice", things the docs do not state. Carry each one into `SKILL.md` where
+it belongs, in plain text with no mark, next to the documented statement it
+extends or corrects. If a live page now states one of them, write the
+documented form instead. Never silently revert one to an older docs-only
+wording.
 
 **Read the Platform API reference too**, under
 `/reference/frends-platform-api/platform-api-reference/`. Its OpenAPI schemas
@@ -206,16 +215,15 @@ State of play at the 6.3 stage: the agentic mode (reasoning loop + MCP
 Tools, formerly roadmap-named "AI Connector v2") SHIPPED in Frends 6.3;
 MCP works in both directions (MCP Trigger exposes processes as tools).
 Check `docs.frends.com/release-notes/` at build time before claiming
-anything about roadmap names like "AI Toolbox" or "AI Cortex" — separate
+anything about roadmap names like "AI Toolbox" — separate
 shipped features from roadmap explicitly, and name the Frends version the split
 reflects.
 
 8. **Existing Tasks**: Task documentation now lives primarily at
 `https://docs.frends.com/tasks` (pattern:
 `/tasks/tasks/<system>/<method>.md`; the full system/method list is in
-llms.txt). `https://tasks.frends.com` still exists as a searchable portal
-but treat docs.frends.com/tasks as canonical — the standalone portal has
-been discussed for deprecation. Task source code:
+llms.txt). Get Task information from docs.frends.com/tasks, not from
+`https://tasks.frends.com`. Task source code:
 `https://github.com/FrendsPlatform/Frends.<Package>`. Teach the skill how
 to fetch relevant task information — docs and sources — when needed. You
 might not always need the latest version; note that existing processes pin
@@ -278,18 +286,16 @@ create the file it mentions, and do not read it as a source if one is installed.
 
 12. **Every claim carries its evidence class, and the classes are not equal.**
 The classes are defined in `README.md`. Four of them end up in what this build
-writes — the fifth, *Served by MCP*, is build 4's — and a reader has to be able
-to tell them apart:
+writes — *Served by MCP* is build 4's — and a reader has to be able to tell the
+marked ones apart:
 
     - **Documented** — a live page says it. The default; cite the page in the
       reference file's header.
     - **Observed in public output** — counted over the public templates or other
       public exports. Anyone can recompute it; say from which corpus and which
       Frends versions.
-    - **Observed against a running Tenant** — an import result or a Tenant's own
-      export. Not reproducible without a Tenant; label it as such and say which
-      path produced it. This is the only category a reader cannot check for
-      themselves, so it must never be left unmarked.
+    - **Practice** — how Frends behaves where the docs are silent (the "Facts
+      from practice" list). State it plainly, unmarked, as how it works.
     - **Opinion** — a working heuristic from practice, e.g. preferring protocol
       Tasks over system-specific wrappers. Keep the good ones, but say plainly
       that the docs do not state them.

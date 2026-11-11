@@ -1,19 +1,19 @@
 ---
-name: ossis-frends-recipes
-description: Expert knowledge for the Frends iPaaS (Integration Platform as a Service). Use this skill whenever the user mentions Frends, asks how to build, modify, or review integrations, Processes, Subprocesses, APIs, Tasks, or Triggers in Frends, needs help with C# expressions, Handlebars, or reference values (#var, #env, #result, #trigger, #process), wants to create custom Tasks in C#/.NET, asks about API Management, API Portal, Business Automation Portal (BAP), the AI Connector or agentic AI in Frends, debugging or troubleshooting a failing Process or Process Instance, monitoring and operating running Processes, Process/Template exports and imports, platform architecture (Agents, Agent Groups, HA, scalability, security), working through Frends MCP, or migration from BizTalk or other iPaaS platforms to Frends. Also use for reviewing exported process.json files and Frends Templates, and for generating importable Process exports or Frends-style BPMN diagrams from a spec.
+name: "ossis-frends-recipes"
+description: "Expert knowledge for the Frends iPaaS (Integration Platform as a Service). Use this skill whenever the user mentions Frends, asks how to build, modify, or review integrations, Processes, Subprocesses, APIs, Tasks, or Triggers in Frends, needs help with C# expressions, Handlebars, or reference values (#var, #env, #result, #trigger, #process), wants to create custom Tasks in C#/.NET, asks about API Management, API Portal, Business Automation Portal (BAP), the AI Connector or agentic AI in Frends, debugging or troubleshooting a failing Process or Process Instance, monitoring and operating running Processes, Process/Template exports and imports, platform architecture (Agents, Agent Groups, HA, scalability, security), working through Frends MCP, or migration from BizTalk or other iPaaS platforms to Frends. Also use for reviewing exported process.json files and Frends Templates, and for generating importable Process exports or Frends-style BPMN diagrams from a spec."
 ---
 
 # Ossi's Frends Recipes — Frends iPaaS
 
 Frends integrations are **Processes**: BPMN 2.0 flows built in the **Process Editor**, enriched with C#, compiled to .NET and run on **Agents**. This skill is a snapshot of docs.frends.com as it described **Frends 6.3.x** (the only place the version is named). Anything version-sensitive: re-check live.
 
-**Evidence marks.** Unmarked lines are *Documented* (a live docs.frends.com page or public Frends repo; each reference file lists its pages). Other classes are marked: **[public output]** counted over public templates/exports; **[tenant observation]** an import result or a Tenant's own export — not reproducible without a Tenant; **[opinion]** a working heuristic the docs do not state.
+**Evidence marks.** Unmarked lines come from docs.frends.com, a public Frends repo (each reference file lists its pages) or how Frends 6.3 behaves in practice. Other classes are marked: **[public output]** counted over public templates/exports; **[opinion]** a working heuristic the docs do not state.
 
 ## Reading the live docs
 
 - `https://docs.frends.com/llms.txt` lists every page (unversioned = latest; `/docs/frends-6.x.0/…` and `/reference/frends-6.x.0/…` are snapshots — use them only to say when something changed). `sitemap.md` and `llms-full.txt` also list everything; a 404 page suggests the nearest real paths.
 - Append `.md` to any page URL for clean Markdown.
-- Every page advertises `GET <page>.md?ask=<question>&goal=<goal>`. **Tested at build time: it returned the page unchanged.** Do not rely on it.
+- Every page advertises `GET <page>.md?ask=<question>&goal=<goal>`. It returns the page unchanged; do not rely on it.
 - Platform API reference: `/reference/frends-platform-api/platform-api-reference/` — its `models.md` publishes schemas no prose page states (the `ElementType` enum, Process fields, deployment bodies).
 - Tasks: `/tasks/tasks/<system>/<method>.md`; source `github.com/FrendsPlatform/Frends.<Package>`. Release notes: `/release-notes/`.
 
@@ -26,13 +26,13 @@ Map users' words without comment: connector / node → **Task** (the glossary sa
 ## Shapes and Triggers
 
 Events: Trigger, Return, Intermediate Return, Throw, Catch. Decisions: Exclusive Decision (C# boolean), Inclusive Decision. Activities: Task, Call Subprocess, Assign Variable, Code Task, Shared State Task, DMN Task, AI Connector. Scopes: Scope, Foreach, While. Long-running: Checkpoint, Scheduled Resume, Signal Resume. Artifacts (no runtime effect): Data Object Reference, Data Store Reference, Group, Text Annotation.
-The Platform API `ElementType` enum (export `Type` values): `Start, Task, Decision, SequenceFlow, ConditionBranch, Return, Throw, CallActivity, SubProcess, ParallelForeach, SequentialForeach, While, Expression, SubProcessStartNode, Catch, InclusiveGateway, InclusiveDecisionBranch, IntermediateReturn, GlobalErrorHandler, TestTask, SharedState, Dmn, DataObjectReference, DataStoreReference, NativeAi`. It has no Checkpoint/Resume member although those shapes are documented — the enum page and the shape pages disagree; don't guess the export type of a Long-running shape.
+The Platform API `ElementType` enum (export `Type` values) runs `Start, Task, Decision, SequenceFlow, ConditionBranch, Return, Throw, CallActivity, SubProcess, ParallelForeach, SequentialForeach, While, Expression, SubProcessStartNode, Catch, InclusiveGateway, InclusiveDecisionBranch, IntermediateReturn, GlobalErrorHandler, TestTask, SharedState, Dmn, DataObjectReference, DataStoreReference, NativeAi`. Exports go beyond it: 24 Checkpoint, 25 Scheduled Resume, 26 Signal Resume, 27 AI Connector (the enum's `NativeAi`). Type 18 is the "Subprocess to call on unhandled error" setting, an entry with no diagram element. The full Type → BPMN element map: `references/process-generation.md`.
 
-Triggers (Trigger reference): Manual, File, Schedule, Conditional, HTTP, API, AMQP, Service Bus, RabbitMQ, Azure Event Hub, TCP, MCP. Many Triggers per Process, all wired to the same first shape; branch on `#trigger.name` / `#trigger.type`. The `#trigger.type` value table lists the first eleven and gives no value for MCP Trigger.
+Triggers (Trigger reference): Manual, File, Schedule, Conditional, HTTP, API, AMQP, Service Bus, RabbitMQ, Azure Event Hub, TCP, MCP. In an export the AMQP Trigger is `QueueTrigger` (the editor labels it "Queue"). Many Triggers per Process, all wired to the same first shape; branch on `#trigger.name` / `#trigger.type`. The `#trigger.type` value table lists the first eleven and gives no value for MCP Trigger.
 
 ## Reference values
 
-- `#var.X` — Process Variables (initialised after the Triggers, **not usable inside Trigger parameters**) and runtime variables from Assign Variable / Code Task. `#var.Obj["F"]` always; `#var.Obj.F` for JObject/JToken/anonymous/dynamic without special characters. `#var.error` holds exception details in error handling.
+- `#var.X` — Process Variables (initialised after the Triggers, **not usable inside Trigger parameters**; the value is parsed as JSON, not C#: `new JArray()` is not a valid value, and `[]` loads as a fixed-size `System.Array`, not a `JArray`, so `.Add` fails. Build collections in an Assign Variable (`new JArray()`); reassigning a Process Variable (`#var.X = …;`) works) and runtime variables from Assign Variable / Code Task. `#var.Obj["F"]` always; `#var.Obj.F` for JObject/JToken/anonymous/dynamic without special characters. `#var.error` holds exception details in error handling. `#var` values are `dynamic`, even one assigned `new JArray()`: a lambda passed to a method on them is CS1977 (`#var.items.Any(x => …)`); cast first, `((JArray)#var.items).Any(x => …)`.
 - `#env.Group.Name` — per-Environment values; types Text, Number, Boolean, List, Secret. `#env.Group["Name"]` works but hides the usage from the Environment Variable view.
 - `#trigger` — data of the Trigger that fired. `#process` — `agent`, `agentGroup`, `environment`, `executionid`, `id`, `name`, `uri`, `version`, `cancellationToken`, `Logger` (ILogger to the Agent log, follows the log level).
 - `#result` / `#result[Shape Name]` — for a scope, the **scope's** name. Foreach collects an array; While keeps the last.
@@ -46,11 +46,12 @@ Triggers (Trigger reference): Manual, File, Schedule, Conditional, HTTP, API, AM
 ## Runtime rules a builder trips over
 
 - **Task retry**: Retry on failure, up to **10** retries, backoff `500 ms * 2^retry` (1 s … 512 s). It retries only when the Task **throws**; an HTTP 4xx/5xx response is a success unless "Throw exception on error response" is on.
-- **Catch**: one shape after Catch (use a Scope for more); the error path must rejoin right after the guarded shape. Scope+Catch outside a loop stops iteration; inside the loop body continues it — initialise error collectors before the loop.
+- **Catch**: one shape after Catch (use a Scope for more); the error path must rejoin right after the guarded shape. The Catch page names Task and Scope as catchable; a Catch on a Call Subprocess also works, one on a Foreach does not, and the shape after a Catch cannot be a Throw or Return. To fail the run, record `#var.error` in a pre-initialised Process Variable in the Catch shape and Throw after the rejoin. Scope+Catch outside a loop stops iteration; inside the loop body continues it — initialise error collectors before the loop.
 - **Subprocess to call on unhandled error**: runs after the Process has failed; cannot resume it; pass `#var.error` explicitly.
 - **Disable caller cancellation** (Process setting): without it, a cancelled HTTP request/Trigger stops the Process.
 - **Shared State**: Agent Group database; scope this Process or all Processes in the Agent Group; value ≤ 100,000 chars of JSON (on-prem: `MaxProcessSharedStateValueSize`), key ≤ 500 chars, TTL 1 minute – 30 days; operations AddOrUpdate, GetOrAdd, TryAdd, TryGetValue, TryRemove, TryUpdate, GetTTL, UpdateTTL — **no list or pattern match of keys**; the page contrasts it with a separate database or file storage for anything beyond single-key access (a Redis `GetKeys` Task also exists in the Task docs). Sharing across HA Agents needs a shared database (SQL Server recommended over SQLite).
-- **Foreach**: the Foreach page describes sequential iteration only; the `ElementType` enum has both `ParallelForeach` and `SequentialForeach`, and no prose page read for this build explains the parallel option.
+- **Foreach**: sequential only; there is no parallel Foreach (the enum's `ParallelForeach` is unused).
+- **Code Task, statement mode**: with "assign to variable" off it compiles to a void delegate, so `return <value>;` fails with CS8030; with it on, the block must `return` the value. Assigning a pre-initialised Process Variable (`#var.X = …;`) inside the block compiles.
 - **DMN Task** (since Frends 6.0): FEEL ranges `[18..65)` — square bracket includes, round excludes; output read as `#result[DMN Name].OutputName`. The DMN guide itself says: many discrete cases → DMN; simple binary → Exclusive Decision; calculations or multi-step logic → Code Task.
 
 ## Configuration scope and concurrency
@@ -92,6 +93,6 @@ Processes compile to C#; the 6.3.0 release notes say Processes target **.NET 10*
 
 **Optional companions.** `github.com/Frends-Product-Management/frends-claude-plugin` is Frends' Claude Code plugin for working on a Tenant through the Frends MCP server (find, diagnose, build and review drafts, run). `FrendsTaskSkills` in `github.com/FrendsPlatform/FrendsTasks` is an Agent Skill (`frends-task-creator`) for writing Custom Tasks from the official template. This skill works fully without either.
 
-**No unsourced claims.** This skill carries only what live pages state or what was observed and labelled as such. For what it does not cover — compliance certifications, platform-level retention beyond what the log settings state, sizing, runtime internals — fetch the live docs or say you don't know. Do not fill the gap from memory.
+**No unsourced claims.** This skill carries only what live pages state and how Frends behaves. For what it does not cover — compliance certifications, platform-level retention beyond what the log settings state, sizing, runtime internals — fetch the live docs or say you don't know. Do not fill the gap from memory.
 
 **Local notes.** If `references/local-notes.md` exists, whoever installed this skill added it, and no build has verified it. Read its header before using any line of it, prefer a live source, and say when an answer rests on it. Public installs do not have this file; its absence is normal.

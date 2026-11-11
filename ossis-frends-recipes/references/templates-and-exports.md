@@ -72,7 +72,7 @@ ProcessTemplates[0].ProcessInfo.LinkedTasks    -> LinkedTasks
 ProcessTemplates[0].ProcessInfo.LinkedSubProcess -> LinkedSubProcess
 ProcessTemplates[0].ProcessInfo.Version        -> Version
 ```
-**Extra step:** if the outer `ProcessVariablesJson` exists, copy it into `Processes[0].ProcessVariablesJson`, or a raw process import loses the template's variables. Caveat: importing into the same Tenant can collide on `UniqueIdentifier`; if you regenerate the process GUID, also re-key `LinkedTasks`/`LinkedSubProcess` from old GUID to new.
+**Extra step:** if the outer `ProcessVariablesJson` exists, copy it into `Processes[0].ProcessVariablesJson`, or a raw process import loses the template's variables. Caveat: importing into the same Tenant can collide on `UniqueIdentifier`; if you regenerate the process GUID, also re-key `LinkedTasks`/`LinkedSubProcess` from old GUID to new. A Process or Subprocess new to the Tenant keeps the `UniqueIdentifier` from the file, so a caller can bind to a generated Subprocess's GUID. When the GUID already exists, the import shows a dialog asking whether to update the existing Process as a new version or import it as a new Process. The new version is usually what you want, and it is the only choice that keeps the GUID callers bind to.
 
 Prefer the official flow when possible: Control Panel → Templates → Import from file → Create Process from Template → fill variables → save/deploy.
 
@@ -89,7 +89,7 @@ Add the metadata wrapper (Name, Modified/Modifier, Tags, TemplateProcessTags, De
 
 ## The two import paths validate differently
 
-Observed by importing generated files into a Frends 6.x Tenant; none of it is in the docs, and the public templates cannot show it because they are all Template exports.
+None of this is in the docs, and the public templates cannot show it because they are all Template exports.
 
 | Field | Template import | Process import |
 |---|---|---|

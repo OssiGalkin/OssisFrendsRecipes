@@ -1,28 +1,31 @@
-"""Frends shape vocabulary.
+"""Frends shape vocabulary for the diagram tools.
 
-Everything here was derived by correlating ElementParameters[].Type with the
-BPMN element carrying the same Id across the corpus (tools/discover_types.py).
-The numbers themselves are public after all: the Platform API reference lists the
-`ElementType` enum, and 0..20 match this table exactly. What the docs do not give
-is the BPMN element each type is drawn as, which is what the join recovers.
-Above 20 the enum has since shifted (it now reads 21 Dmn, 22 DataObjectReference,
-23 DataStoreReference, 24 NativeAi), so the artifact entries below are correct for
-a 5.7/6.0 corpus and should be re-derived against a newer one.
+Derived by correlating ElementParameters[].Type with the BPMN element carrying
+the same Id: first across the 77 public FrendsTemplates (Frends 5.7/6.0,
+tools/discover_types.py), then across a reference export made in the
+Frends 6.3.2 Process Editor with one shape of every kind
+(tests/fixtures/shapes-6.3.json, scrubbed). The Platform API `ElementType`
+enum names the Types; neither source gives the element each is drawn as.
 
-Key -> (ElementParameters.Type, BPMN localname). A (Type, None) key matches any
-element carrying that Type.
+Key -> (ElementParameters.Type, BPMN localname). Because the key is the PAIR,
+one table serves both numberings: the corpus drew Types 21/22 as artifacts,
+6.3.2 draws 21 as DMN and 22/23 as the artifacts. No pair collides.
 
-Three entries would mislead a reader who trusted element names (all confirmed
-against this corpus, not assumed):
+Facts a reader would get wrong from element names alone:
 
-  * Type 12 is BOTH Assign Variable and Code Task, both `scriptTask`. The only
-    discriminator is DI width: 30x30 is Assign Variable, 100x80 is Code Task.
-    Handled in extract.classify(), not here.
-  * `businessRuleTask` is Shared State Task, not DMN -- SelectedTypeId is
-    AddOrUpdate / TryGetValue.
-  * Throw and Intermediate Return are the same element (intermediateThrowEvent
-    + signalEventDefinition, Type 6) and both carry zero outgoing flows, even
-    Intermediate Return, which continues executing. See AMBIGUOUS below.
+  * Type 12 is BOTH Assign Variable and Code Task, both `scriptTask`. The
+    discriminator is the presence of `useStatementMode` (or DI width: 30x30
+    Assign Variable, 100x80 Code Task). Handled in extract.classify().
+  * `businessRuleTask` is Shared State (20) AND DMN (21). Only Type separates.
+  * Catch is NOT a boundaryEvent. It is an intermediateCatchEvent with a
+    signalEventDefinition, reached by an ordinary sequence flow from the shape
+    it guards (Task, Scope or Call Subprocess). Its single successor rejoins at
+    the guarded shape's other successor.
+  * Intermediate Return is an endEvent + signalEventDefinition (Type 17), NOT
+    the Throw element. The guarded activity gets a second outgoing flow to it.
+  * Checkpoint (24) and Signal Resume (26) share element and event definition
+    (messageEventDefinition); only Type separates them. Scheduled Resume (25)
+    is the timerEventDefinition one, and normally loops back to a Checkpoint.
 """
 
 TYPE_TO_SHAPE = {
@@ -31,11 +34,19 @@ TYPE_TO_SHAPE = {
     (13, 'startEvent'): 'scope_trigger',     # 36x36, the Trigger inside a container; name always empty
     (5, 'endEvent'): 'return',               # 36x36, SelectedTypeId None | HttpResult | Expression
     (6, 'intermediateThrowEvent'): 'throw',  # 36x36 + signalEventDefinition
+    (17, 'endEvent'): 'intermediate_return',  # 6.3.2: endEvent + signalEventDefinition
+    (14, 'intermediateCatchEvent'): 'catch',  # 6.3.2: + signalEventDefinition
+    (24, 'intermediateCatchEvent'): 'checkpoint',        # + messageEventDefinition
+    (25, 'intermediateCatchEvent'): 'scheduled_resume',  # + timerEventDefinition
+    (26, 'intermediateCatchEvent'): 'signal_resume',     # + messageEventDefinition
 
     # --- activities ---
     (1, 'task'): 'task',                     # 100x80, SelectedTypeId /ProcessTask/<guid>/vN
-    (12, 'scriptTask'): 'code_task',         # overridden by width in classify()
-    (20, 'businessRuleTask'): 'shared_state_task',   # NOT DMN
+    (12, 'scriptTask'): 'code_task',         # overridden in classify()
+    (20, 'businessRuleTask'): 'shared_state_task',
+    (21, 'businessRuleTask'): 'dmn_task',            # 6.3.2
+    (7, 'callActivity'): 'call_subprocess',          # 6.3.2
+    (27, 'task'): 'ai_connector',                    # 6.3.2, drawn 199x131
 
     # --- decisions ---
     (2, 'exclusiveGateway'): 'decision',     # 50x50
@@ -44,16 +55,21 @@ TYPE_TO_SHAPE = {
     # --- scopes / containers ---
     (10, 'subProcess'): 'foreach',           # labels "For each ..."
     (11, 'subProcess'): 'while',             # labels "While ... remain"
+    (8, 'subProcess'): 'scope',              # 6.3.2: no loop characteristics
 
     # --- sequence flows ---
     (4, 'sequenceFlow'): 'sequence_flow',            # labelled branch off an exclusive decision
     (16, 'sequenceFlow'): 'sequence_flow',           # labelled branch off an inclusive decision
 
-    # --- artifacts (documentation only, dropped from the layout-free spec) ---
-    (21, 'dataObjectReference'): 'data_object_reference',
-    (22, 'dataStoreReference'): 'data_store_reference',
-    (23, 'dataStoreReference'): 'data_store_reference',
+    # --- artifacts (no runtime behaviour) ---
+    (21, 'dataObjectReference'): 'data_object_reference',   # 5.7/6.0 corpus
+    (22, 'dataStoreReference'): 'data_store_reference',     # 5.7/6.0 corpus
+    (22, 'dataObjectReference'): 'data_object_reference',   # 6.3.2
+    (23, 'dataStoreReference'): 'data_store_reference',     # both
 }
+
+# ElementParameters entries with no diagram element.
+ELEMENTLESS_TYPES = {18: 'unhandled_error_subprocess', 19: 'test_task'}
 
 # Used when an element has no ElementParameters entry at all. That is NORMAL for
 # unlabelled sequence flows (697 of them in this corpus) and for BPMN
@@ -68,25 +84,16 @@ BPMN_FALLBACK_SHAPE = {
     'exclusiveGateway': 'decision',
     'inclusiveGateway': 'inclusive_decision',
     'intermediateThrowEvent': 'throw',
+    'intermediateCatchEvent': 'catch',
+    'callActivity': 'call_subprocess',
     'businessRuleTask': 'shared_state_task',
 }
 
-# Shapes the docs describe but which do NOT occur in this corpus, so their Type
-# numbers are unknown. The extractor reports any unseen Type loudly rather than
-# guessing one of these. Catch is added from the docs (boundaryEvent +
-# errorEventDefinition) and is marked doc-derived, not corpus-derived.
-NOT_IN_CORPUS = [
-    'catch', 'scope', 'call_subprocess', 'dmn_task', 'ai_connector',
-    'checkpoint', 'scheduled_resume', 'signal_resume',
-]
+# Every documented shape has a known (Type, element) pair; an unknown Type is
+# reported loudly.
+NOT_IN_CORPUS = []
 
-# Genuinely indistinguishable in an export: Throw and Intermediate Return share
-# element, Type, event definition and outgoing-flow count (zero). Every Type 6
-# in this corpus reads as a Throw from its label, but nothing in the XML proves
-# it. The generator can emit either; the extractor always reports 'throw'.
-AMBIGUOUS = {
-    'throw': 'Intermediate Return is the same element and Type; not separable '
-             'from the XML alone.',
-}
-
-# Sizes are filled in by tools/measure.py from the corpus, not hardcoded here.
+# Throw and Intermediate Return used to be listed here as indistinguishable.
+# In 6.3.2 they are different elements and Types (6 vs 17). Nothing is
+# ambiguous by Type; Assign Variable vs Code Task is resolved in classify().
+AMBIGUOUS = {}

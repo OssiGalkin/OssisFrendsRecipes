@@ -48,11 +48,10 @@ inclusive gateway, with 3 named branches (create / update / delete).
 
 Catch does NOT end the flow path — it is the one event shape with an outgoing flow.
 
-**Catch does not occur anywhere in this corpus.** Its BPMN element is therefore
-inferred, not measured: it attaches to another shape, so it must be a `boundaryEvent`
-with an `attachedToRef` and an `errorEventDefinition`. Flagged doc-derived in
-shapes.py. Its ElementParameters.Type number is unknown and will be reported as an
-unknown Type by the extractor the first time a corpus containing one is supplied.
+Catch is not a `boundaryEvent`. It is an `intermediateCatchEvent` +
+`signalEventDefinition`, Type 14, reached from the guarded shape by an ordinary
+sequence flow. The guarded shape (Task, Scope or Call Subprocess) has two outgoing
+flows; the Catch's one successor rejoins at the other. A Foreach cannot have a Catch.
 
 ## Throw vs Intermediate Return — /reference/.../intermediate-return
 > "Unlike Return shape, Intermediate Return shape does not end the Process execution
@@ -60,14 +59,11 @@ unknown Type by the extractor the first time a corpus containing one is supplied
 > "You can only connect Intermediate Return shape to a Task shape, Call Subprocess
 > shape, Assign Variable shape or Code Task shape."
 
-Both are `intermediateThrowEvent` + `signalEventDefinition` + Type 6, and both carry
-zero outgoing flows in the XML. Nothing in an export separates them. A heuristic
-exists — Intermediate Return hangs off an activity's second outgoing flow, Throw
-usually terminates a decision branch — but it is a heuristic, so the extractor
-reports `throw` for every Type 6 and records the ambiguity rather than guessing.
+They are different elements. Throw is `intermediateThrowEvent` +
+`signalEventDefinition` (Type 6); Intermediate Return is `endEvent` +
+`signalEventDefinition` (Type 17), reached by a second outgoing flow from its activity.
 
-## Shapes not present in this corpus
-Catch, plain Scope, Call Subprocess, DMN Task, AI Connector, Checkpoint,
-Scheduled Resume, Signal Resume. Their Type numbers are unknown. Any corpus richer
-than the public template repo will surface them, and the extractor will report each
-loudly with example labels rather than skipping it.
+## Shapes not present in the public corpus
+Catch, plain Scope, Call Subprocess, DMN Task, AI Connector, Checkpoint, Scheduled
+Resume, Signal Resume. Their elements are in the Type table in
+references/process-generation.md. The extractor reports any unknown Type loudly.
