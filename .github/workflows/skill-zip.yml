@@ -1,0 +1,32 @@
+name: Build skill zip
+
+on:
+  push:
+    branches: [main]
+    paths: ["ossis-frends-recipes/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  zip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build zip with SKILL.md at its root
+        run: |
+          cd ossis-frends-recipes
+          zip -qr ../ossis-frends-recipes.zip . -x '*__pycache__*' '*.pyc'
+
+      - name: Publish to the "latest" release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -f latest
+          git push -f origin latest
+          gh release view latest >/dev/null 2>&1 || \
+            gh release create latest --title "Latest build" \
+              --notes "Rebuilt from main whenever the skill changes."
+          gh release upload latest ossis-frends-recipes.zip --clobber

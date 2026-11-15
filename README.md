@@ -18,7 +18,20 @@ The result is a complete Frends Process that can be imported into a Tenant and r
 
 ## Install
 
-Install `ossis-frends-recipes/` as a skill in Claude, Codex or GitHub Copilot, or point any agent at `SKILL.md`. For an upload that expects a zip, zip the folder's contents so `SKILL.md` sits at the root of the zip. The skill is deliberately not named `frends`, so it installs next to any Frends skill you already have instead of replacing it.
+**Claude Code:** add this repo as a plugin marketplace, then install the skill:
+
+```
+claude plugin marketplace add OssiGalkin/OssisFrendsRecipes
+claude plugin install ossis-frends-recipes@ossi-galkin
+```
+
+Update later with `claude plugin update ossis-frends-recipes@ossi-galkin`.
+
+**Claude on the web or desktop, GitHub Copilot, Codex:** download [ossis-frends-recipes.zip](https://github.com/OssiGalkin/OssisFrendsRecipes/releases/download/latest/ossis-frends-recipes.zip). It is rebuilt from main whenever the skill changes. Upload it where the app adds skills, or unzip it into your agent's skills folder.
+
+**Any other agent:** Ask from agent, usually point it at `ossis-frends-recipes/SKILL.md`.
+
+The skill is deliberately not named `frends`, so it installs next to any Frends skill you already have instead of replacing it.
 
 The scripts also work on their own. See `ossis-frends-recipes/references/generator/README.md`. They require Python and work out of the box in Claude on the web.
 

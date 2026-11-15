@@ -1,0 +1,16 @@
+{
+  "name": "ossi-galkin",
+  "description": "Ossi Galkin's Frends skills. Personal project, not a Frends product.",
+  "owner": {
+    "name": "Ossi Galkin",
+    "url": "https://github.com/OssiGalkin"
+  },
+  "plugins": [
+    {
+      "name": "ossis-frends-recipes",
+      "source": "./ossis-frends-recipes",
+      "description": "Describe a Frends integration in plain language and get back a Process you can import.",
+      "homepage": "https://github.com/OssiGalkin/OssisFrendsRecipes"
+    }
+  ]
+}
