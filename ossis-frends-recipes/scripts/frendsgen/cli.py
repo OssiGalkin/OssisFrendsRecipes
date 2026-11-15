@@ -161,8 +161,8 @@ def _picture(args) -> int:
     """Any export (or .bpmn) -> SVG, drawn from the layout already in the file.
     No re-layout: what you see is what Frends would draw."""
     import os, re, tempfile
-    from .diagram.render import render
-    from .diagram.validate import main as diagram_validate
+    from frendsdiagram.render import render
+    from frendsdiagram.validate import main as diagram_validate
     if args.file.lower().endswith(".bpmn"):
         items = [(os.path.splitext(os.path.basename(args.file))[0],
                   open(args.file, encoding="utf-8-sig").read())]

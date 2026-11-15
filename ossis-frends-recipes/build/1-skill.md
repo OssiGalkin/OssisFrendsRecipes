@@ -53,12 +53,25 @@ sourced from the server, report it for build 4 instead of writing it.
 Never point a reader at `references/mcp.md` unless that file exists in the
 skill folder you were handed: it only appears once build 4 has run.
 
-**Facts from practice.** `build/README.md` lists, under "Facts from
-practice", things the docs do not state. Carry each one into `SKILL.md` where
-it belongs, in plain text with no mark, next to the documented statement it
-extends or corrects. If a live page now states one of them, write the
-documented form instead. Never silently revert one to an older docs-only
-wording.
+**What the docs do not say.** Write these in plain text, no mark, next to the
+documented statement each extends. If a live page now states one, use its
+wording instead.
+
+- `#var` (Process Variables): the value is parsed as JSON, not C#.
+  `new JArray()` is not a valid value; `[]` loads as a fixed-size
+  `System.Array` with no `.Add`. Build collections in an Assign Variable.
+  `#var` values are `dynamic`: cast to the static type before passing a lambda
+  (otherwise CS1977).
+- Code Task in statement mode with "assign to variable" off returns nothing:
+  `return <value>;` is CS8030. Assigning `#var.X = …;` works.
+- Catch: also works on a Call Subprocess, not on a Foreach or While (wrap those
+  in a Scope). The shape after a Catch cannot be a Throw or Return.
+- AI Connector (`references/ai-connector.md`): `#result.Response` can be a JSON
+  object rather than a string; read it as `JToken`.
+- Import (`references/templates-and-exports.md`): a Process or Subprocess new
+  to the Tenant keeps the file's `UniqueIdentifier`. When the GUID exists,
+  update the existing Process (new version); only that keeps the GUID callers
+  bind to.
 
 **Read the Platform API reference too**, under
 `/reference/frends-platform-api/platform-api-reference/`. Its OpenAPI schemas
@@ -294,8 +307,8 @@ marked ones apart:
     - **Observed in public output** — counted over the public templates or other
       public exports. Anyone can recompute it; say from which corpus and which
       Frends versions.
-    - **Practice** — how Frends behaves where the docs are silent (the "Facts
-      from practice" list). State it plainly, unmarked, as how it works.
+    - **What the docs do not say** — the short list above. State it plainly,
+      unmarked, as how it works.
     - **Opinion** — a working heuristic from practice, e.g. preferring protocol
       Tasks over system-specific wrappers. Keep the good ones, but say plainly
       that the docs do not state them.

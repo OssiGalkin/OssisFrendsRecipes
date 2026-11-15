@@ -5,11 +5,11 @@
 | You want | Use | Output | Can Frends import it? |
 |---|---|---|---|
 | A working Process from a spec | `python3 -m frendsgen generate spec.yaml -o process.json` | ProcessExport | Yes, within the scope below |
-| A picture of a design — for a spec, review, blog post | `python3 -m frendsgen.diagram.generate spec.json out.bpmn` | `.bpmn` with full layout | **No.** A diagram has no `ElementParameters`, so no functionality |
+| A picture of a design — for a spec, review, blog post | `python3 -m frendsdiagram.generate spec.json out.bpmn` | `.bpmn` with full layout | **No.** A diagram has no `ElementParameters`, so no functionality |
 | A picture of an existing export | `python3 -m frendsgen picture export.json -o out/` | SVG drawn from the file's own layout | n/a |
 | An editable spec from an existing export | `python3 -m frendsgen lift export.json --spec -o my.yaml` | YAML | n/a |
 
-Run everything from `scripts/` (a read-only skill directory is fine; write outputs elsewhere with `-o`). `generate`, `validate` and `lift` need only Python 3, plus PyYAML for YAML specs (JSON specs work without it). `picture` and the `diagram` validate/render/extract tools also need `lxml`. Full usage, tests and architecture: `scripts/README.md`.
+Run everything from `scripts/` (a read-only skill directory is fine; write outputs elsewhere with `-o`). `generate`, `validate` and `lift` need only Python 3, plus PyYAML for YAML specs (JSON specs work without it). `picture` and the `diagram` validate/render/extract tools also need `lxml`. Full usage, tests and architecture: `references/generator/README.md`.
 
 **"Make me a Frends process" usually means a picture.** Ask which one is wanted when it is not obvious. The two scopes differ on purpose: a wrong picture costs nothing, a wrong `ElementParameters` entry is a failed import.
 
@@ -17,7 +17,7 @@ Run everything from `scripts/` (a read-only skill directory is fine; write outpu
 
 **Importable export (`generate`), legacy form** (the default) — Manual Trigger; `Frends.HTTP.Request`; Assign Variable; Code Task; Exclusive Decision whose branches terminate or merge back to the step after the decision; Foreach; While; Return; Throw; Process Variables.
 
-**Importable export, `target: "6.3"`** — everything above plus every other documented shape and all twelve Triggers: Scope; Catch; Intermediate Return; Call Subprocess; Subprocess to call on unhandled error; Inclusive Decision; Shared State `AddOrUpdate`; DMN Task; AI Connector; Checkpoint; Signal Resume; the Checkpoint / Scheduled Resume wait loop; several Triggers on one Process; Manual Trigger parameters. Each is rebuilt field for field from a reference export made in the Frends 6.3.2 Process Editor (`scripts/tests/fixtures/`), and lifting that export and regenerating it reproduces every shape entry by Id. Four constructs are not in the export and follow the fixtures README's description instead: Catch on a Call Subprocess, the unhandled-error Subprocess, the Scheduled Resume loop and the Service Bus Trigger. The queue and hub Triggers need real connection settings (broker address, connection string) before they activate.
+**Importable export, `target: "6.3"`** — everything above plus every other documented shape and all twelve Triggers: Scope; Catch; Intermediate Return; Call Subprocess; Subprocess to call on unhandled error; Inclusive Decision; Shared State `AddOrUpdate`; DMN Task; AI Connector; Checkpoint; Signal Resume; the Checkpoint / Scheduled Resume wait loop; several Triggers on one Process; Manual Trigger parameters. Each is rebuilt field for field from a reference export made in the Frends 6.3.2 Process Editor (`assets/fixtures/`), and lifting that export and regenerating it reproduces every shape entry by Id. Four constructs are not in the export and follow the fixtures README's description instead: Catch on a Call Subprocess, the unhandled-error Subprocess, the Scheduled Resume loop and the Service Bus Trigger. The queue and hub Triggers need real connection settings (broker address, connection string) before they activate.
 
 Still refused by name: other Tasks (their parameter schemas need real instances), other Shared State operations, `#env` closure, promoted values, artifacts in an importable file, arbitrary graphs. HTTP Request is the one in the public templates, with its parameter set and GUID.
 
@@ -25,7 +25,7 @@ Still refused by name: other Tasks (their parameter schemas need real instances)
 
 ## Spec format (importable Process)
 
-YAML or JSON. `scripts/examples/order-sync.yaml` uses every construct; `lift --spec` writes this format from any real export that fits, which is the fastest way to see a construct you care about. Unknown keys are errors, never silently dropped.
+YAML or JSON. `assets/examples/order-sync.yaml` uses every construct; `lift --spec` writes this format from any real export that fits, which is the fastest way to see a construct you care about. Unknown keys are errors, never silently dropped.
 
 ```yaml
 name: Order sync                       # required
@@ -66,7 +66,7 @@ steps:
 - `http_request` params: `method`, `url`, `message`, `result_method`, `headers: [{name, value}]`, `authentication`, `username`, `password`, `token`, `timeout_seconds`, `follow_redirects`, `throw_on_error`, `allow_invalid_certificate`, `allow_invalid_charset`, `automatic_cookie_handling`, and the `certificate_*` fields (`tasks.py`).
 - Pin `unique_identifier` only when you mean to overwrite that Process; otherwise every run gets a new GUID.
 
-### 6.3 additions (`target: "6.3"`; `scripts/examples/all-shapes-6.3.yaml` uses every one)
+### 6.3 additions (`target: "6.3"`; `assets/examples/all-shapes-6.3.yaml` uses every one)
 
 ```yaml
 target: "6.3"
@@ -97,7 +97,7 @@ steps:
 - Trigger types: `manual http api file schedule conditional mcp tcp event_hub rabbitmq amqp service_bus`. `config` overrides the editor's defaults; unknown keys are errors. Trigger fields refuse Handlebars and `#var`/`#result`/`#trigger`/`#process`; a credential field (connection string, password, key, secret) takes only a bare `#env.Group.Name`.
 - An `api` Trigger needs `openApiDocument` (the API's OpenAPI document as text), `basePath` (its server URL, starting `/api/`) and `routeTemplate` (base path without the leading slash, plus one path in the document), with `httpMethod` matching an operation there. The document cannot be empty. Linking the Process to the API is not part of the Process file: after importing the API (from the same document) and the Process, link them in API Management with *Link Process*, or through the Frends MCP server.
 - A Conditional Trigger names its condition Subprocess with `subprocess: <name>`, bound like any Subprocess; a literal `processGuid` is refused. Frends lists it in `UsedSubprocessesJson` and `LinkedSubProcess` like a called Subprocess, and so does the generator. Import the condition Subprocess first: until it exists, the editor shows it as missing and Frends refuses to export the Process. A Schedule Trigger without `seasonStartDate` gets the generation date.
-- A Catch's handler is exactly one shape: not a `decision`, `inclusive` or `wait_until` (they expand to several), not a shape with its own `on_error`/`respond_early`, and never a `throw` or `return` — Frends 6.3.2 refuses that import. To fail after a Catch, store `#var.error` in a Process Variable and Throw after the rejoin (`examples/all-shapes-6.3.yaml`). Use a `scope` as the handler for more.
+- A Catch's handler is exactly one shape: not a `decision`, `inclusive` or `wait_until` (they expand to several), not a shape with its own `on_error`/`respond_early`, and never a `throw` or `return` — Frends 6.3.2 refuses that import. To fail after a Catch, store `#var.error` in a Process Variable and Throw after the rejoin (`assets/examples/all-shapes-6.3.yaml`). Use a `scope` as the handler for more.
 - A statement-mode `code` step without `variable` must not `return` a value (CS8030 on import); with `variable` it must `return` one. The generator refuses both mistakes.
 - A Catch guards a Task, Scope or Call Subprocess only (not a Foreach or While — wrap those in a Scope). Its one handler shape rejoins at the guarded shape's successor or terminates. One shape cannot carry both `on_error` and `respond_early`: the Task reference allows one or the other.
 - DMN: no `#` in the table. Outputs read as `#result[<name>].<output>`. A lifted table is carried verbatim.
@@ -106,7 +106,7 @@ steps:
 
 ## Spec format (diagram only)
 
-JSON, flat, in Frends vocabulary, no coordinates; see `scripts/examples/order-sync.diagram.json`.
+JSON, flat, in Frends vocabulary, no coordinates; see `assets/examples/order-sync.diagram.json`.
 
 ```json
 {"name": "...", "process_id": "Process_1",
@@ -121,7 +121,7 @@ JSON, flat, in Frends vocabulary, no coordinates; see `scripts/examples/order-sy
 
 ## Workflow for producing a Process
 
-1. **Write the spec** (YAML). `scripts/examples/order-sync.yaml` shows the legacy form; `scripts/examples/all-shapes-6.3.yaml` uses every 6.3 construct. Anything beyond Manual Trigger, HTTP Request, Assign Variable, Code Task, Exclusive Decision, Foreach, While, Return, Throw and Process Variables needs `target: "6.3"`. Design with this skill's rules: Process Variables for configuration (values are JSON), failure paths end in Throw after a Catch rejoins, retries on network-facing Tasks, the `#result` limits.
+1. **Write the spec** (YAML). `assets/examples/order-sync.yaml` shows the legacy form; `assets/examples/all-shapes-6.3.yaml` uses every 6.3 construct. Anything beyond Manual Trigger, HTTP Request, Assign Variable, Code Task, Exclusive Decision, Foreach, While, Return, Throw and Process Variables needs `target: "6.3"`. Design with this skill's rules: Process Variables for configuration (values are JSON), failure paths end in Throw after a Catch rejoins, retries on network-facing Tasks, the `#result` limits.
 2. **Bind what lives in the Tenant.** The HTTP Request Task binds to the public templates' GUID; if the target Tenant holds it under another GUID, pass `--tasks-from <an export from that Tenant using the Task>`. Subprocesses bind by name with `--subprocesses-from <an export of the Subprocess, or of a Process that calls it>`; a Subprocess generated in the same session binds from its own generated file.
 3. **`generate`.** It refuses what Frends would refuse (with the Frends error it prevents), validates, and prints byte count and md5.
 4. **`picture --check` the result and look at it.** Layout problems are obvious by eye and invisible to a passing validator.

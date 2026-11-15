@@ -195,8 +195,8 @@ def test_both_shape_vocabularies_agree():
     """The export side and the diagram side each carry a Type -> BPMN element
     map. They were derived separately; they must not drift."""
     from frendsgen.shapes import TYPE_TAGS, KIND_SIZE
-    from frendsgen.diagram.shapes import TYPE_TO_SHAPE
-    from frendsgen.diagram.generate import SHAPE
+    from frendsdiagram.shapes import TYPE_TO_SHAPE
+    from frendsdiagram.generate import SHAPE
     from frendsgen.plan import DIAGRAM_SHAPE
     diagram = {}
     for (t, tag) in TYPE_TO_SHAPE:
@@ -370,7 +370,7 @@ import os
 import yaml
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-FIXTURES = [os.path.join(HERE, "fixtures", "shapes-6.3.json")]
+FIXTURES = [os.path.join(HERE, "..", "..", "assets", "fixtures", "shapes-6.3.json")]
 SUB = {"name": "S", "guid": "00000000-0000-4000-8000-000000000201",
        "parameters": ["input"]}
 
@@ -508,7 +508,7 @@ def test_dmn_table_rebuilds_the_reference_xml():
 
 
 def test_all_shapes_example_generates_clean():
-    path = os.path.join(HERE, "..", "examples", "all-shapes-6.3.yaml")
+    path = os.path.join(HERE, "..", "..", "assets", "examples", "all-shapes-6.3.yaml")
     proc = load_spec(yaml.safe_load(open(path, encoding="utf-8")))
     out = process_export(proc)
     errs = [x for x in validate_process(out["Processes"][0]) if x.sev == ERROR]

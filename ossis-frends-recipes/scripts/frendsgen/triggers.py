@@ -1,7 +1,7 @@
 """Trigger configurations.
 
 Each template is the config that the Frends 6.3.2 reference export
-(tests/fixtures/shapes-6.3.json, or its README for Service Bus) holds for that
+(assets/fixtures/shapes-6.3.json, or its README for Service Bus) holds for that
 Trigger type: the key set and
 key order are Frends' own. The exports do not record which values the author
 changed from the editor's defaults, so treat a template value as "what one real

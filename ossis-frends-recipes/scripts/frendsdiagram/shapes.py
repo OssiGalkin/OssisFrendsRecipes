@@ -4,7 +4,7 @@ Derived by correlating ElementParameters[].Type with the BPMN element carrying
 the same Id: first across the 77 public FrendsTemplates (Frends 5.7/6.0,
 tools/discover_types.py), then across a reference export made in the
 Frends 6.3.2 Process Editor with one shape of every kind
-(tests/fixtures/shapes-6.3.json, scrubbed). The Platform API `ElementType`
+(assets/fixtures/shapes-6.3.json, scrubbed). The Platform API `ElementType`
 enum names the Types; neither source gives the element each is drawn as.
 
 Key -> (ElementParameters.Type, BPMN localname). Because the key is the PAIR,

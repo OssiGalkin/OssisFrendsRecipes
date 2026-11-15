@@ -1,4 +1,4 @@
-# Build 2 — the diagram toolchain (`scripts/frendsgen/diagram/`)
+# Build 2 — the diagram toolchain (`scripts/frendsdiagram/`)
 
 Second of four build prompts. Read `README.md` in this folder first: it says what this
 one may write, what it must hand to the next one, and in which order they run.
@@ -19,7 +19,7 @@ phrasing is ambiguous — "make me a Frends process" usually means a picture, bu
 check.
 
 
-> **Since 6.3: shape reference export.** `scripts/tests/fixtures/shapes-6.3.json`
+> **Since 6.3: shape reference export.** `assets/fixtures/shapes-6.3.json`
 > places one of every shape; its README describes in words the few constructs it
 > does not place. Run `extract`, `generate`, `validate` and
 > `roundtrip` on it as on the corpus. What the corpus does not show:
@@ -275,8 +275,8 @@ matches reality.
 **The interface the export generator depends on.** This is a contract, not a
 style preference; the third build prompt is written against it.
 
-- The code is a Python package, `frendsgen.diagram`, and every tool is runnable
-  as `python3 -m frendsgen.diagram.<tool>`. No `sys.path` tricks, no imports that
+- The code is a Python package, `frendsdiagram`, and every tool is runnable
+  as `python3 -m frendsdiagram.<tool>`. No `sys.path` tricks, no imports that
   only work from one working directory.
 - Layout and emission are two separate, importable functions. Layout takes the
   spec — nodes `{id, shape, label, parent, color?}`, flows
@@ -333,14 +333,14 @@ reason for that rule.
 
 Into `scripts/` of the skill, and nowhere else:
 
-- `frendsgen/diagram/` — the package described in step 7.
-- `docs/CALIBRATION.md` recording every validator rule that was changed and what
-  drove the change; `docs/MEASUREMENTS.txt`, the raw output of the measurement
-  script; `docs/CONSTRAINTS.md`, the quoted doc constraints; `docs/NOTES.md`, the
+- `frendsdiagram/` — the package described in step 7.
+- `references/generator/CALIBRATION.md` recording every validator rule that was changed and what
+  drove the change; `references/generator/MEASUREMENTS.txt`, the raw output of the measurement
+  script; `references/generator/CONSTRAINTS.md`, the quoted doc constraints; `references/generator/NOTES.md`, the
   two non-Frends cross-references.
-- `examples/` — one hand-authored diagram spec that exercises the shapes the
+- `assets/examples/` — one hand-authored diagram spec that exercises the shapes the
   corpus lacks, marked as doc-derived.
-- A section for `scripts/README.md` stating what was measured from which corpus
+- A section for `references/generator/README.md` stating what was measured from which corpus
   and what has never been checked against a real renderer. No measured constants
   in it beyond naming the corpus they came from.
 

@@ -6,8 +6,8 @@ four parts have different inputs, different cadences and different proof:
 | # | Prompt | Builds | From | Proof it worked |
 |---|---|---|---|---|
 | 1 | `1-skill.md` | `SKILL.md`, `references/` | live docs.frends.com | every claim has a live source |
-| 2 | `2-diagram.md` | the diagram package, `scripts/docs/` | a zip of real exports | corpus round-trip, and looking at PNGs |
-| 3 | `3-export.md` | the export generator, `scripts/tests/`, `scripts/examples/`, `scripts/README.md`, `references/process-generation.md` | the same zip, parts 1 and 2, the previous version of the generator, and a human with a tenant | three corpus loops, then a real import |
+| 2 | `2-diagram.md` | the diagram package, `references/generator/` | a zip of real exports | corpus round-trip, and looking at PNGs |
+| 3 | `3-export.md` | the export generator, `scripts/tests/`, `assets/examples/`, `references/generator/README.md`, `references/process-generation.md` | the same zip, parts 1 and 2, the previous version of the generator, and a human with a tenant | three corpus loops, then a real import |
 | 4 | `4-mcp.md` | `references/mcp.md`, the MCP router block in `SKILL.md` | public MCP documentation, and a Frends MCP connection to any tenant | the scenarios in `scenarios.md`, run with and without a connection |
 
 Run them **in that order, each in its own session**, handing each session the
@@ -43,10 +43,13 @@ marked section it owns inside another build's file.
 | `references/process-generation.md` | 3 |
 | `references/templates-and-exports.md` | 1 — except "The two import paths validate differently" and the task-GUID paragraph, owned by 3 (docs cannot supply them; only imports can) |
 | `references/mcp.md` | 4 |
-| `scripts/frendsgen/diagram/`, `scripts/docs/` | 2 |
-| everything else under `scripts/` | 3 |
+| `scripts/frendsdiagram/`, `references/generator/` except its `README.md` | 2 |
+| everything else under `scripts/`, `references/generator/README.md`, `assets/examples/` | 3 |
+| `assets/fixtures/` (the reference export and its README) | hand-made input |
 | `build/*.md`, including `scenarios.md` | hand-written |
 | `references/local-notes.md` | **written by whoever installs the skill; never built, never committed** (below) |
+
+**Layout rule.** `scripts/` holds only `.py` files; GitHub Copilot rejects any other file type there. No file sits more than two folders below the skill root (`scripts/frendsdiagram/…`, not `scripts/frendsgen/diagram/…`): Copilot's upload refuses deeper paths. Docs go under `references/`, data files (specs, exports) under `assets/`. Claude and Codex accept this layout as well.
 
 ## Pinned inputs
 
@@ -79,44 +82,6 @@ These are decisions, not discoveries. A regeneration that changes them is wrong.
   built file. No tenant exports, tenant GUIDs, tenant URLs, Process names,
   Environment Variable names, names or email addresses anywhere.
 
-## Facts from practice
-
-How Frends 6.3 behaves where the docs are silent. Build 1 carries them into
-`SKILL.md` in plain text; build 3 uses the reference export
-(`scripts/tests/fixtures/shapes-6.3.json`) itself as its answer key. Update
-this list when the Frends version moves.
-
-- Export `Type` values agree with the Platform API `ElementType` enum up to 23,
-  then go further: 24 Checkpoint, 25 Scheduled Resume, 26 Signal Resume,
-  27 AI Connector (the enum's `NativeAi`). Type 18 is the "Subprocess to call
-  on unhandled error" setting: an `ElementParameters` entry with no diagram
-  element.
-- There is no parallel Foreach; the enum's `ParallelForeach` is unused.
-- In an export the AMQP Trigger is `QueueTrigger`; the editor labels it "Queue".
-- A Catch works on a Call Subprocess (the Catch page names Task and Scope), not
-  on a Foreach. The shape after a Catch cannot be a Throw or Return; it must
-  rejoin where the guarded shape goes on success.
-- A statement-mode Code Task with "assign to variable" off returns nothing:
-  `return <value>;` is CS8030. `#var.X = …;` on a Process Variable works.
-- A Process Variable's value is parsed as JSON before the run: `new JArray()`
-  is not a valid value, and `[]` loads as a fixed-size `System.Array` with no
-  `.Add`. Build collections in an Assign Variable.
-- `#var` values are `dynamic`: cast to the static type before passing a lambda
-  (CS1977 otherwise).
-- Import keeps a new Process's `UniqueIdentifier`. When the GUID already
-  exists, choose to update the existing Process (new version); only that keeps
-  the GUID callers bind to.
-- A caller's `LinkedSubProcess` entry carries the Subprocess's
-  `ManualTriggerJson` verbatim, `nonStringifiedDefaultValue` included.
-- An API Trigger needs `openApiDocument`, `basePath` (the server URL) and
-  `routeTemplate` (base path plus one of its paths). Linking the Process to
-  the API happens in API Management (*Link Process*) or through the Frends MCP
-  server; the Process file cannot carry it.
-- A Conditional Trigger's condition Subprocess is listed in
-  `UsedSubprocessesJson` and `LinkedSubProcess`, like a call.
-- The AI Connector's `#result.Response` can be a JSON object, not a string:
-  read it as `JToken`.
-
 ## Evidence classes
 
 Every built claim carries one. Build 1 defines how they are marked; the others
@@ -127,7 +92,6 @@ use the same marks.
 | **Documented** | a live docs.frends.com page or a public Frends repo says it | anyone |
 | **Public output** | counted over the public templates or other public exports | anyone |
 | **Served by MCP** | returned by the Frends MCP server's own discovery calls and guides, at a named server or Frends version | anyone with a connection to any tenant |
-| **Practice** | how Frends behaves where the docs are silent (see "Facts from practice"); written unmarked | anyone with a Frends environment |
 | **Opinion** | a working heuristic from practice | nobody; say so |
 
 The MCP server's guides and tool list are product content, the same in every
@@ -169,8 +133,8 @@ pass.
 ```
 python3 -m tests.test_generator
 python3 -m frendsgen selftest <corpus>
-python3 -m frendsgen.diagram.extract <corpus> work/ && python3 -m frendsgen.diagram.roundtrip work/spec work/raw work/gen
-python3 -m frendsgen generate examples/magento-zoho-orders.yaml -o /tmp/m.json && python3 -m frendsgen picture /tmp/m.json -o /tmp --check
+python3 -m frendsdiagram.extract <corpus> work/ && python3 -m frendsdiagram.roundtrip work/spec work/raw work/gen
+python3 -m frendsgen generate ../assets/examples/magento-zoho-orders.yaml -o /tmp/m.json && python3 -m frendsgen picture /tmp/m.json -o /tmp --check
 grep -rIE "@[a-z]+\.(com|fi)|frendsapp\.com" . | grep -vE "example\.com|yourtenant"   # expect: support@frends.com only
 ```
 

@@ -1,7 +1,7 @@
 """DMN Task decision tables.
 
 The serialised form is copied from the one DMN Task in the Frends 6.3.2
-reference export (tests/fixtures/shapes-6.3.json): a Camunda-flavoured DMN
+reference export (assets/fixtures/shapes-6.3.json): a Camunda-flavoured DMN
 1.3 document in `dmnXml`, the decision id `decisionId_<shape id>` in
 `decisionId`, and a JSON object in `parameters` that maps each `var.`/`env.`
 name the table reads to the `#var.`/`#env.` reference that feeds it.

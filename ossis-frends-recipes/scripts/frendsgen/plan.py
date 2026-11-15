@@ -218,7 +218,7 @@ def _flow(plan: Plan, ids: _Ids, src: Node, tgt: Node,
 # 3. layout and routing
 # --------------------------------------------------------------------------
 # Placement and routing are NOT done here. They are delegated to the diagram
-# layout engine (frendsgen.diagram.generate.build_layout), which was derived
+# layout engine (frendsdiagram.generate.build_layout), which was derived
 # from and round-tripped against all 77 public templates, and which the
 # diagram-only generator also uses. There is one layout engine in this package.
 #
@@ -256,7 +256,7 @@ DIAGRAM_SHAPE = {
 def diagram_spec(plan: "Plan") -> dict:
     """The plan as a layout-free diagram spec (the diagram tools' input).
 
-    Also the bridge the other way: write this out and `frendsgen.diagram`
+    Also the bridge the other way: write this out and `frendsdiagram`
     can validate or render the process without touching the export."""
     nodes = []
     for n in plan.nodes:
@@ -272,7 +272,7 @@ def diagram_spec(plan: "Plan") -> dict:
 
 
 def _layout(plan: "Plan"):
-    from .diagram.generate import build_layout, GenError
+    from frendsdiagram.generate import build_layout, GenError
     try:
         _nodes, pos, routes = build_layout(diagram_spec(plan))
     except GenError as exc:

@@ -5,7 +5,7 @@ Two sources, kept apart because they disagree above Type 20:
 * the 77 public FrendsTemplates (Frends 5.7.x / 6.0.2): the Type -> BPMN tag
   join that this package was first built from;
 * a reference export made in the Frends 6.3.2 Process Editor, one shape
-  of every kind (scrubbed copy in tests/fixtures/shapes-6.3.json).
+  of every kind (scrubbed copy in assets/fixtures/shapes-6.3.json).
 
 The Platform API `ElementType` enum names the Types; neither source alone
 gives the element each Type is drawn as. Where the two sources disagree
@@ -18,7 +18,7 @@ checks the pair against the union of both tables.
 # Every row is observed in the 6.3.2 reference export except 3 (enum +
 # corpus: a plain flow gets no ElementParameters entry), 9 (enum member the
 # editor does not offer), 19 (corpus: the editor's scratch entry), and 18 and
-# 25, which tests/fixtures/README.md describes.
+# 25, which assets/fixtures/README.md describes.
 # --------------------------------------------------------------------------
 TYPES_63 = {
     0:  ("startEvent", None, "trigger"),
@@ -142,7 +142,7 @@ EP_KEYS = (
 )
 
 # Trigger $type values: eleven are in the 6.3.2 reference export, Service Bus
-# is described in tests/fixtures/README.md.
+# is described in assets/fixtures/README.md.
 TRIGGER_TYPES = {
     "manual": "ManualTrigger",
     "http": "HttpTrigger",

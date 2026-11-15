@@ -19,14 +19,14 @@ differently. Do not rebuild for the prompt's sake.
 ## 0. Inputs
 
 - **Required when it exists: the previous version of this generator**
-  (`scripts/frendsgen/`, `scripts/examples/`, `scripts/README.md`). It produced
+  (`scripts/frendsgen/`, `assets/examples/`, `references/generator/README.md`). It produced
   Processes that imported and ran on a real Tenant, and the comments that quote
   Frends errors record why its refusals exist. Start from it, not from a blank
   page. Keep its behaviour unless you have a strong reason to believe it is
   wrong: corpus or reference-export evidence that contradicts it, a failed
   import or run, or a live docs page that states otherwise. A cleaner design, a
   different reading of the docs, or "I would have done it differently" is not
-  such a reason. When you do change a behaviour, say in `scripts/README.md`
+  such a reason. When you do change a behaviour, say in `references/generator/README.md`
   what the old version did and what evidence overturned it. Keep every refusal
   it makes unless the same standard of evidence shows the refusal is wrong.
 - **Required:** a zip of real exports. Public data means the `FrendsTemplates`
@@ -35,7 +35,7 @@ differently. Do not rebuild for the prompt's sake.
   semantics — reference values (`#var`, `#env`, `#result`), Handlebars vs C#,
   the shape catalogue, task behaviour, the limits on `#result[Name]`. Read them.
   Do not re-derive what they state.
-- **Required:** `frendsgen.diagram`, built by the second prompt. You drive its
+- **Required:** `frendsdiagram`, built by the second prompt. You drive its
   layout function from your own node list; you do not call its CLI and you do
   not write a second layout engine (see the architectural requirement). If the
   package does not honour the interface described in `2-diagram.md` step 7, fix
@@ -46,7 +46,7 @@ differently. Do not rebuild for the prompt's sake.
   arrives, run the corpus survey on it first, before anything else. **Use it;
   never ship it.** See "Nothing tenant-specific is stored".
 - **Required since 6.3: the shape reference export**
-  (`scripts/tests/fixtures/shapes-6.3.json`). One ProcessExport made in
+  (`assets/fixtures/shapes-6.3.json`). One ProcessExport made in
   the Frends 6.3.2 Process Editor that places one of every shape and eleven
   Triggers, scrubbed of tenant identifiers (one placeholder per original
   GUID). The fixtures README describes in words what it does not place: Catch
@@ -64,7 +64,7 @@ differently. Do not rebuild for the prompt's sake.
   channel here: what the skill tells its *user* about the MCP server is build
   4's, so do not describe its guides or tools in `process-generation.md`. When
   an import or a task binding came through the server rather than a human,
-  say so in `scripts/README.md` next to the evidence it produced.
+  say so in `references/generator/README.md` next to the evidence it produced.
 - **A human with a tenant** who will import files you hand them. Assume that
   channel corrupts files above roughly 10,000 characters unless the file is
   delivered as a download and checked by md5.
@@ -351,9 +351,9 @@ Into the skill, and nowhere else:
   the corpus self-tests. `scripts/tests/` — unit tests that pin every
   import-path rule, the binding-by-PackageId behaviour, and the agreement of the
   two shape tables.
-- `scripts/examples/` — a worked spec exercising every supported construct, and
+- `assets/examples/` — a worked spec exercising every supported construct, and
   the largest public process that fits the IR, produced by `lift --spec`.
-- `scripts/README.md` — usage; architecture; scope; what each test proves with
+- `references/generator/README.md` — usage; architecture; scope; what each test proves with
   its current numbers.
 - **`references/process-generation.md`** — this build owns it. It is what an
   agent using the skill reads, so it carries: which entry point to use when; the
