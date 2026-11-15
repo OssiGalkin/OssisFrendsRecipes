@@ -18,19 +18,19 @@ The result is a complete Frends Process that can be imported into a Tenant and r
 
 ## Install
 
-Install `ossis-frends-recipes/` as a skill in Claude, or point any agent at `SKILL.md`. The skill is deliberately not named `frends`, so it installs next to any Frends skill you already have instead of replacing it.
+Install `ossis-frends-recipes/` as a skill in Claude, Codex or GitHub Copilot, or point any agent at `SKILL.md`. For an upload that expects a zip, zip the folder's contents so `SKILL.md` sits at the root of the zip. The skill is deliberately not named `frends`, so it installs next to any Frends skill you already have instead of replacing it.
 
-The scripts also work on their own. See `ossis-frends-recipes/scripts/README.md`. The scripts require Python and work out of the box in Claude on the web.
+The scripts also work on their own. See `ossis-frends-recipes/references/generator/README.md`. They require Python and work out of the box in Claude on the web.
 
-## The great catch
+## What it covers
 
-Everything in the skill was either verified against the live documentation at docs.frends.com or observed directly, and it says which. Observed means counted over the public [FrendsTemplates](https://github.com/FrendsPlatform/FrendsTemplates) repository, or seen when generated files were imported into a Tenant and run there.
+Everything in the skill comes from the documentation at docs.frends.com, the public [FrendsTemplates](https://github.com/FrendsPlatform/FrendsTemplates) repository, or how Frends 6.3 works.
 
-**Supported:** one trigger (Manual Trigger), one task (Frends.HTTP.Request), and the shapes the public templates use: Assign Variable, Code Task, Exclusive Decision, Foreach, While, Return, Throw, and Process Variables.
+**Processes:** Frends 6.3 Processes, including every shape, Trigger and reference (`#var`, `#env` and the rest).
 
-That means the following are **not supported**: Scope and Catch, other triggers, other tasks, Subprocesses, Environment Variables and Promoted Values. The generator only emits what it has seen in a shipped template and then watched a Tenant accept. The public templates barely exercise error handling, so that is the biggest gap.
+**Not supported:** Tasks other than Frends.HTTP.Request, Shared State operations other than AddOrUpdate, Promoted Values, and artifacts (text annotations, groups) in an importable Process. Other Tasks are the biggest gap: their parameters can't be written correctly without a real instance of each Task.
 
-**Diagrams:** fourteen of the twenty-five documented shapes, laid out in the Frends house style. The conventions were measured from the public templates, because they aren't documented anywhere. Most importantly, Catch is not one of the fourteen.
+**Diagrams:** every shape, laid out in the Frends house style. The conventions were measured from the public templates, because they aren't documented anywhere.
 
 Nothing tenant-specific is included: no Tenant exports, no per-installation task GUIDs, no names. The generator can read task GUIDs from an export you supply at run time if you want to edit existing processes. Process exports contain your company's integration logic, and sometimes business data with it. Check what you're allowed to give an AI before you hand one over.
 
